@@ -284,6 +284,14 @@ export async function matchModeDForConfig(
     };
   }
 
+  const dustRaw = (config.dustFloor ?? "0").trim() || "0";
+  if (!AMOUNT_RE.test(dustRaw)) {
+    throw new Error(
+      `dustFloor must be a non-negative major-unit decimal string (${input.asset}/${input.network})`,
+    );
+  }
+  const dustMinor = majorToMinor(dustRaw, config.decimals);
+
   const amountExact: MatchCandidateOrder[] = [];
   const amountMismatches: MatchCandidateOrder[] = [];
 
@@ -295,7 +303,11 @@ export async function matchModeDForConfig(
       );
     }
     const payableMinor = majorToMinor(payable, config.decimals);
-    if (payableMinor === receivedMinor) {
+    const delta =
+      payableMinor >= receivedMinor
+        ? payableMinor - receivedMinor
+        : receivedMinor - payableMinor;
+    if (payableMinor === receivedMinor || (dustMinor > 0n && delta <= dustMinor)) {
       amountExact.push(order);
     } else {
       amountMismatches.push(order);
@@ -303,6 +315,12 @@ export async function matchModeDForConfig(
   }
 
   if (amountExact.length === 0) {
+    if (dustMinor > 0n && receivedMinor <= dustMinor) {
+      return {
+        status: OrderStatus.PendingPayment,
+        reason: "dust_ignored",
+      };
+    }
     if (unexpired.length === 1 && amountMismatches.length === 1) {
       const only = amountMismatches[0]!;
       const payableMinor = majorToMinor(

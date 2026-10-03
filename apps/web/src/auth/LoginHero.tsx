@@ -25,11 +25,9 @@ const FEATURES = [
 export function LoginBrand({ productLine = "MERCHANT POS" }: Props) {
   return (
     <div className="login-hero__brand">
-      <GateLogoMark size={48} className="login-hero__mark" alt="" />
-      <div className="login-hero__brand-copy">
-        <span className="login-hero__name">PaymentGate</span>
-        <span className="login-hero__product">{productLine}</span>
-      </div>
+      <GateLogoMark size={144} className="login-hero__mark" alt="" />
+      <span className="login-hero__name">PAYMENTGATE</span>
+      <span className="login-hero__product">{productLine}</span>
     </div>
   );
 }

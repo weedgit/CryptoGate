@@ -14,6 +14,7 @@ Single entry point for **Company A operators** and **Company B assist** — link
 | Deploy sequence, processes, rollback | [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md) | Kevin |
 | TLS surfaces, secrets, rotation | [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md) | Kevin |
 | Backup, restore drill, alerts | [M4-03-Backup-Monitoring.md](M4-03-Backup-Monitoring.md) | Kevin |
+| Emergency backup when server is bad | [M4-03b-Emergency-Backup-Playbook.md](M4-03b-Emergency-Backup-Playbook.md) | Kevin |
 | Jump host, vendor access, logging | [M4-04-Admin-Host-Vendor-Access.md](M4-04-Admin-Host-Vendor-Access.md) | Kevin |
 | Local / test / prod matrix | [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md) | Kevin |
 | Merchant integrator API | [M3-02-Integration-Guide.md](M3-02-Integration-Guide.md) | Kevin |
@@ -57,6 +58,7 @@ Single entry point for **Company A operators** and **Company B assist** — link
 | --- | --- |
 | First deploy to test/prod | [M4-01](M4-01-Deploy-Runbook.md) §5 |
 | Rotate session secret | [M4-02](M4-02-Secrets-TLS.md) §6 |
+| Emergency dump when server looks bad | [M4-03b](M4-03b-Emergency-Backup-Playbook.md) |
 | Restore DB after incident | [M4-03](M4-03-Backup-Monitoring.md) §4.2 |
 | Test restore drill (M4-T04) | [M4-T04-Restore-Drill-Report.md](M4-T04-Restore-Drill-Report.md) · [M4-03](M4-03-Backup-Monitoring.md) §4.1 |
 | Grant vendor break-glass | [M4-04](M4-04-Admin-Host-Vendor-Access.md) §7 |

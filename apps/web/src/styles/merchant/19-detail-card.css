@@ -138,14 +138,16 @@
 .org-brand-mark--image {
   padding: 0;
   overflow: hidden;
-  background: #0f172a;
+  /* Transparent PNGs should sit on the page, not a dark plate. */
+  background: transparent;
+  box-shadow: none;
 }
 
 .org-brand-mark--image img {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .b3-commission-modal-backdrop .org-profile-edit-modal {

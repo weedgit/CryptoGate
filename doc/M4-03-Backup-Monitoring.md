@@ -139,6 +139,12 @@ Run **at least once** in the **test** environment before prod go-live. Record el
 
 **Pass criteria:** health OK, sample order readable, pending webhook count stable, watcher ticks without crash.
 
+### 4.1b Bad server status — emergency dump first
+
+If the host looks unhealthy **before** you restore, follow the operator playbook:
+
+**[M4-03b-Emergency-Backup-Playbook.md](M4-03b-Emergency-Backup-Playbook.md)** — stop writers if unsafe → run `deploy/backup.sh` → copy dump (+ `.env`) off-box → then repair or restore.
+
 ### 4.2 Production emergency restore
 
 1. **Incident commander** (Company A) declares DB restore.  

@@ -1,6 +1,9 @@
 /**
  * Shared exact payable match for Mode B and Mode C (fingerprint is still exact amount).
  * Collision among 2+ exact matches → anomaly (never FIFO).
+ *
+ * Platform dustFloor (asset registry): sole-order delta ≤ dust → paid; unmatched
+ * inbound ≤ dust → ignored (no Attention). Dust must stay < Mode C amountStep.
  */
 import {
   AssetCode,
@@ -45,6 +48,10 @@ function isExpired(order: MatchCandidateOrder, nowMs: number): boolean {
   const exp = Date.parse(order.expiresAt);
   if (Number.isNaN(exp)) return false;
   return exp <= nowMs;
+}
+
+function absDiff(a: bigint, b: bigint): bigint {
+  return a >= b ? a - b : b - a;
 }
 
 export async function matchExactPayable(
@@ -96,6 +103,19 @@ export async function matchExactPayable(
 
   const nowMs = input.nowMs ?? Date.now();
   const receivedMinor = majorToMinor(amount, config.decimals);
+  const dustRaw = (config.dustFloor ?? "0").trim() || "0";
+  if (!AMOUNT_RE.test(dustRaw)) {
+    throw new Error(
+      `dustFloor must be a non-negative major-unit decimal string (${input.asset}/${input.network})`,
+    );
+  }
+  const dustMinor = majorToMinor(dustRaw, config.decimals);
+  const stepMinor = majorToMinor(config.amountStep, config.decimals);
+  if (dustMinor > 0n && dustMinor >= stepMinor) {
+    throw new Error(
+      `dustFloor must be strictly less than amountStep (${input.asset}/${input.network})`,
+    );
+  }
 
   const scoped = input.candidates.filter(
     (o) =>
@@ -105,6 +125,12 @@ export async function matchExactPayable(
   );
 
   if (scoped.length === 0) {
+    if (dustMinor > 0n && receivedMinor <= dustMinor) {
+      return {
+        status: OrderStatus.PendingPayment,
+        reason: "dust_ignored",
+      };
+    }
     return {
       status: OrderStatus.PendingPayment,
       reason: "no_open_order_at_address",
@@ -113,6 +139,12 @@ export async function matchExactPayable(
 
   const eligible = filterEligibleCandidates(scoped, input.transferAtMs);
   if (eligible.length === 0) {
+    if (dustMinor > 0n && receivedMinor <= dustMinor) {
+      return {
+        status: OrderStatus.PendingPayment,
+        reason: "dust_ignored",
+      };
+    }
     return {
       status: OrderStatus.PendingPayment,
       reason:
@@ -153,9 +185,13 @@ export async function matchExactPayable(
       );
     }
     const tolMinor = majorToMinor(tolRaw, config.decimals);
+    // Merchant underpayTolerance remains Mode B only; dustFloor is platform-wide.
     const allowUnderpayTol = expectedMode === "B" && tolMinor > 0n;
+    const delta = absDiff(payableMinor, receivedMinor);
 
     if (payableMinor === receivedMinor) {
+      exact.push(order);
+    } else if (dustMinor > 0n && delta <= dustMinor) {
       exact.push(order);
     } else if (
       allowUnderpayTol &&
@@ -181,6 +217,14 @@ export async function matchExactPayable(
       orderId: exact[0]!.orderId,
       status: OrderStatus.Verifying,
       reason: reasons.exact,
+    };
+  }
+
+  // Unmatched dust on a shared wallet — do not open Attention (cannot attribute).
+  if (dustMinor > 0n && receivedMinor <= dustMinor) {
+    return {
+      status: OrderStatus.PendingPayment,
+      reason: "dust_ignored",
     };
   }
 

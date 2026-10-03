@@ -27,6 +27,7 @@ const ANOMALY_REASON_LABELS: Record<string, string> = {
   duplicate_payment: "A second payment was detected for this order",
   delayed_arrival: "Payment arrived late",
   no_exact_amount_match: "No open order matched this exact amount",
+  dust_ignored: "Inbound amount is below the dust floor",
 };
 
 /** What staff should do after reading the reason. */
@@ -55,6 +56,8 @@ const ANOMALY_GUIDANCE: Record<string, string> = {
     "Confirm the tx on the explorer and how you treated it in your books, then Resolve with a note.",
   no_exact_amount_match:
     "This payment did not match an open ticket amount. Identify the payer off-platform if needed, then Resolve with a note.",
+  dust_ignored:
+    "Tiny inbound amount ignored (dust). No ticket was changed — spam or rounding dust on a shared wallet cannot be attributed.",
 };
 
 const DEFAULT_ANOMALY_GUIDANCE =

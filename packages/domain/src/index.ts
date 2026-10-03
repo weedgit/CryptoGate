@@ -308,6 +308,12 @@ export type AssetNetworkConfig = {
   minAmount: string;
   /** Mode C fingerprint step in major units */
   amountStep: string;
+  /**
+   * Platform dust floor (major units). Must be strictly less than `amountStep`.
+   * Sole-order shortfall/excess ≤ dust → treat as paid; unmatched inbound ≤ dust
+   * is ignored (no Attention) so spam does not flood shared Mode B wallets.
+   */
+  dustFloor: string;
   requiredConfirmations: number;
   /** False for typical USDT account tokens (Phase1-Project-Plan §2.4) */
   memoSupported: boolean;
@@ -324,6 +330,7 @@ export const USDT_TRON: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
+  dustFloor: "0.001",
   requiredConfirmations: 19,
   memoSupported: false,
 };
@@ -344,6 +351,7 @@ export const USDT_TRON_NILE: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
+  dustFloor: "0.001",
   /** Same depth as mainnet Tron so UAT timing matches production (19 blocks). */
   requiredConfirmations: 19,
   memoSupported: false,
@@ -362,6 +370,7 @@ export const USDT_ETHEREUM: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
+  dustFloor: "0.001",
   requiredConfirmations: 12,
   memoSupported: false,
 };
@@ -376,6 +385,7 @@ export const USDT_SOLANA: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
+  dustFloor: "0.001",
   requiredConfirmations: 32,
   memoSupported: false,
 };
@@ -390,6 +400,7 @@ export const USDC_ETHEREUM: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
+  dustFloor: "0.001",
   requiredConfirmations: 12,
   memoSupported: false,
 };
@@ -404,6 +415,7 @@ export const USDC_SOLANA: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
+  dustFloor: "0.001",
   requiredConfirmations: 32,
   memoSupported: false,
 };
@@ -418,6 +430,7 @@ export const ETH_ETHEREUM: AssetNetworkConfig = {
   decimals: 18,
   minAmount: "0.001",
   amountStep: "0.001",
+  dustFloor: "0.0001",
   requiredConfirmations: 12,
   memoSupported: false,
 };
@@ -433,6 +446,7 @@ export const TRX_TRON: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "1",
   amountStep: "1",
+  dustFloor: "0.1",
   requiredConfirmations: 19,
   memoSupported: false,
 };

@@ -30,6 +30,7 @@ const memoNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
+  dustFloor: "0.001",
   requiredConfirmations: 1,
   memoSupported: true,
 };
@@ -436,6 +437,66 @@ describe("M3-64 §2.8 / M3-T06 underpay overpay wrong-network duplicate-hash", (
     assert.equal(result.status, "verifying");
     assert.equal(result.orderId, "ord-tol");
     assert.equal(result.reason, "mode_b_exact_match");
+  });
+
+  it("sole Mode B underpay within dustFloor matches as paid", async () => {
+    const result = await matchTransaction({
+      mode: "B",
+      toAddress: MAIN,
+      amount: "49.999",
+      ...USDT_TRON,
+      txHash: "0xdust-under",
+      candidates: [candidate("ord-dust", MAIN, "50.00")],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-dust");
+    assert.equal(result.reason, "mode_b_exact_match");
+  });
+
+  it("sole Mode B overpay within dustFloor matches as paid", async () => {
+    const result = await matchTransaction({
+      mode: "B",
+      toAddress: MAIN,
+      amount: "50.001",
+      ...USDT_TRON,
+      txHash: "0xdust-over",
+      candidates: [candidate("ord-dust-o", MAIN, "50.00")],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-dust-o");
+  });
+
+  it("unmatched dust on shared Mode B wallet is ignored (no Attention)", async () => {
+    const result = await matchTransaction({
+      mode: "B",
+      toAddress: MAIN,
+      amount: "0.000001",
+      ...USDT_TRON,
+      txHash: "0xdust-spam",
+      candidates: [
+        candidate("ord-a", MAIN, "50.00"),
+        candidate("ord-b", MAIN, "75.00"),
+      ],
+    });
+    assert.equal(result.status, "pending_payment");
+    assert.equal(result.reason, "dust_ignored");
+    assert.equal(result.orderId, undefined);
+  });
+
+  it("meaningful underpay with several open Mode B invoices stays unattributed", async () => {
+    const result = await matchTransaction({
+      mode: "B",
+      toAddress: MAIN,
+      amount: "49.50",
+      ...USDT_TRON,
+      txHash: "0xmulti-under",
+      candidates: [
+        candidate("ord-a", MAIN, "50.00"),
+        candidate("ord-b", MAIN, "75.00"),
+      ],
+    });
+    assert.equal(result.status, "pending_payment");
+    assert.equal(result.reason, "no_exact_amount_match");
   });
 
   it("wrong network does not bind (unmatched)", async () => {

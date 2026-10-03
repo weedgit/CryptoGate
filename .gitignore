@@ -33,3 +33,7 @@ apps/cashier-apk/**/build/
 ZCS POS -SDK/
 
 __pycache__/
+
+# Host backup mounts (symlinks to /var/backups)
+BACKUPS
+BACKUPS-DRILL

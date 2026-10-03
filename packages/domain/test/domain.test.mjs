@@ -119,6 +119,11 @@ describe("@paymentgate/domain", () => {
     assert.equal(row.requiredConfirmations, 19);
     assert.equal(row.memoSupported, false);
     assert.equal(row.minAmount, "0.01");
+    assert.equal(row.dustFloor, "0.001");
+    assert.ok(
+      Number(row.dustFloor) < Number(row.amountStep),
+      "dustFloor must stay below Mode C amountStep",
+    );
     assert.equal(row.chainEnv, ChainEnvironment.Mainnet);
     assert.equal(
       getAssetNetworkConfig(AssetCode.USDT, NetworkId.TronNile, "mainnet"),

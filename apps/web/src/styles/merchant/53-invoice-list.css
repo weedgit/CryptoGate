@@ -740,6 +740,12 @@
 .invoice-list__party-mark.org-brand-mark--image {
   border-radius: 10px;
   overflow: hidden;
+  background: transparent;
+  box-shadow: none;
+}
+
+.invoice-list__party-mark.org-brand-mark--image img {
+  object-fit: contain;
 }
 
 .invoice-list__party-body {

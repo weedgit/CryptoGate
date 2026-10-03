@@ -789,9 +789,15 @@ html[data-theme="light"] .invite-creds__share-label {
   color: #64748b;
 }
 
-html[data-theme="light"] .invite-creds__label-icon,
-html[data-theme="light"] .invite-creds__copy {
+html[data-theme="light"] .invite-creds__label-icon {
   color: #64748b;
+}
+
+/* Beat .platform-shell … .invite-creds__copy:hover { color: #f8fafc } (dark). */
+html[data-theme="light"] .invite-creds__copy,
+html[data-theme="light"] .platform-shell .b3-agent-detail__invite-creds .invite-creds__copy {
+  color: #475569;
+  background: transparent;
 }
 
 html[data-theme="light"] .invite-creds__value {
@@ -805,14 +811,18 @@ html[data-theme="light"] .invite-creds__value--link:hover {
   color: #b45309;
 }
 
-html[data-theme="light"] .invite-creds__copy:hover:not(:disabled) {
+html[data-theme="light"] .invite-creds__copy:hover:not(:disabled),
+html[data-theme="light"] .platform-shell .b3-agent-detail__invite-creds .invite-creds__copy:hover:not(:disabled) {
   color: #0f172a;
-  background: #f1f5f9;
+  background: #e2e8f0;
 }
 
-html[data-theme="light"] .invite-creds__copy.is-copied {
+html[data-theme="light"] .invite-creds__copy.is-copied,
+html[data-theme="light"] .invite-creds__copy.is-copied:hover:not(:disabled),
+html[data-theme="light"] .platform-shell .b3-agent-detail__invite-creds .invite-creds__copy.is-copied,
+html[data-theme="light"] .platform-shell .b3-agent-detail__invite-creds .invite-creds__copy.is-copied:hover:not(:disabled) {
   color: #047857;
-  background: #d1fae5;
+  background: #bbf7d0;
 }
 
 html[data-theme="light"] .invite-member-modal .field-shell .field-control:disabled,

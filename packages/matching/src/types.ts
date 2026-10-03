@@ -121,8 +121,8 @@ export type MatchInput = {
   /** Optional clock for expiry checks (tests). Default Date.now(). */
   nowMs?: number;
   /**
-   * Mode B only: major-unit underpay tolerance. Amounts short by at most this
-   * still match. Mode C must keep this 0 / unused (fingerprints stay exact).
+   * Mode B only: major-unit underpay tolerance (merchant setting; Phase 1 = 0).
+   * Platform dustFloor from the asset registry always applies in match-exact.
    */
   underpayTolerance?: string;
   /** On-chain transfer time (epoch ms). Transfers before order create are ignored. */
