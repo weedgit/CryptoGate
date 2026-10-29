@@ -104,3 +104,38 @@ describe("ethereum scan cursor (Infura request budget)", () => {
     assert.equal(blocks() - before, 1, "idle head: one overlap block per cycle");
   });
 });
+
+describe("native ETH receipts (H3 / H4)", () => {
+  beforeEach(() => resetEthScanCursors());
+
+  it("drops reverted transfers and stamps block time", async () => {
+    const payee = addr(7);
+    const fetchImpl = async (_url, init) => {
+      const body = JSON.parse(String(init.body));
+      let result = null;
+      if (body.method === "eth_blockNumber") result = "0x3e8";
+      if (body.method === "eth_getBlockByNumber") {
+        result = {
+          timestamp: "0x6553f100",
+          transactions: [
+            { hash: "0xok", to: payee, value: "0xde0b6b3a7640000" },
+            { hash: "0xreverted", to: payee, value: "0xde0b6b3a7640000" },
+          ],
+        };
+      }
+      if (body.method === "eth_getTransactionReceipt") {
+        result = { blockNumber: "0x3e8", status: body.params[0] === "0xok" ? "0x1" : "0x0" };
+      }
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }));
+    };
+    const cfg = { ...BASE_CFG, asset: "ETH", nativeAsset: true, decimals: 18, nativeMaxBlocksPerTick: 1 };
+    const result = await fetchNativeEthTransfersForAddresses({
+      watchedAddresses: [payee],
+      fetchImpl: /** @type {typeof fetch} */ (fetchImpl),
+      runtimeConfig: cfg,
+    });
+    assert.deepEqual(result.transfers.map((t) => t.txHash), ["0xok"]);
+    assert.equal(result.transfers[0].amount, "1");
+    assert.equal(result.transfers[0].blockTimestampMs, 0x6553f100 * 1000);
+  });
+});

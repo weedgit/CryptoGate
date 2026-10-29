@@ -605,3 +605,44 @@ describe("@paymentgate/chain-clients/tron backoff (M3-45)", () => {
     }
   });
 });
+
+describe("@paymentgate/chain-clients/tron native TRX ingest (H3 / H4)", () => {
+  it("keeps SUCCESS transfers with block time and drops failed ones", async () => {
+    const { fetchNativeTrxTransfersForAddresses } = await import("../tron/trongrid.mjs");
+    const row = (txID, contractRet) => ({
+      txID,
+      block_timestamp: 1_760_000_000_000,
+      ret: [{ contractRet }],
+      raw_data: {
+        contract: [
+          {
+            type: "TransferContract",
+            parameter: { value: { amount: 2_000_000, to_address: PAYEE, owner_address: "TPayer" } },
+          },
+        ],
+      },
+    });
+    const fetchImpl = async () => ({
+      ok: true,
+      async json() {
+        return { data: [row("ok-tx", "SUCCESS"), row("bad-tx", "OUT_OF_ENERGY")] };
+      },
+    });
+    const result = await fetchNativeTrxTransfersForAddresses({
+      watchedAddresses: [PAYEE],
+      fetchImpl: /** @type {typeof fetch} */ (fetchImpl),
+      runtimeConfig: {
+        configured: true,
+        nativeAsset: true,
+        baseUrl: "https://api.trongrid.io",
+        apiKey: "",
+        decimals: 6,
+        asset: "TRX",
+        network: "tron",
+      },
+    });
+    assert.deepEqual(result.transfers.map((t) => t.txHash), ["ok-tx"]);
+    assert.equal(result.transfers[0].amount, "2");
+    assert.equal(result.transfers[0].blockTimestampMs, 1_760_000_000_000);
+  });
+});

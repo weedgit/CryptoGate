@@ -25,3 +25,30 @@ describe("@paymentgate/chain-clients/solana", () => {
     assert.equal(r.mode, "stub");
   });
 });
+
+describe("@paymentgate/chain-clients/solana SPL mapping (H3 / H4)", () => {
+  const owner = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsHYdWzZQZJqJqJq";
+  const mint = USDT_SOLANA.contractAddress;
+  const cfg = { owner, mint, decimals: 6, asset: "USDT", network: "solana" };
+  const tx = (meta) => ({
+    blockTime: 1_760_000_000,
+    transaction: { signatures: ["sig1"] },
+    meta: {
+      preTokenBalances: [{ accountIndex: 1, mint, owner, uiTokenAmount: { amount: "0" } }],
+      postTokenBalances: [{ accountIndex: 1, mint, owner, uiTokenAmount: { amount: "5000000" } }],
+      ...meta,
+    },
+  });
+
+  it("carries the block time", async () => {
+    const { mapSplTransferFromTransaction } = await import("../solana/rpc.mjs");
+    const mapped = mapSplTransferFromTransaction(tx({ err: null }), cfg);
+    assert.equal(mapped.amount, "5");
+    assert.equal(mapped.blockTimestampMs, 1_760_000_000_000);
+  });
+
+  it("ignores failed transactions", async () => {
+    const { mapSplTransferFromTransaction } = await import("../solana/rpc.mjs");
+    assert.equal(mapSplTransferFromTransaction(tx({ err: { InstructionError: [0, "x"] } }), cfg), null);
+  });
+});

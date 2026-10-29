@@ -252,6 +252,9 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
       const contracts = Array.isArray(raw.contract) ? raw.contract : [];
       const first = /** @type {Record<string, unknown>} */ (contracts[0] ?? {});
       if (String(first.type ?? "") !== "TransferContract") continue;
+      // Failed txs are listed too; only a SUCCESS result moved TRX (H4).
+      const ret = Array.isArray(row.ret) ? row.ret[0] : null;
+      if (String(ret?.contractRet ?? "").toUpperCase() !== "SUCCESS") continue;
 
       const value = /** @type {Record<string, unknown>} */ (
         /** @type {Record<string, unknown>} */ (first.parameter ?? {}).value ?? {}

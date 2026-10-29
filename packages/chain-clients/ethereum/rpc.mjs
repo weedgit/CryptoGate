@@ -362,6 +362,16 @@ export async function fetchNativeEthTransfersForAddresses(input) {
       } catch {
         continue;
       }
+      // A reverted tx (e.g. out of gas into a contract wallet) is mined but moves no value (H4).
+      const receipt = await withEthRetry(
+        () =>
+          jsonRpcCall(cfg.rpcUrl, "eth_getTransactionReceipt", [txHash], {
+            fetchImpl: input.fetchImpl,
+            apiKey: cfg.apiKey,
+          }),
+        { sleepImpl: input.sleepImpl },
+      );
+      if (!isSuccessfulReceipt(receipt)) continue;
       transfers.push({
         toAddress: to,
         amount,
@@ -378,13 +388,22 @@ export async function fetchNativeEthTransfersForAddresses(input) {
 }
 
 /**
+ * Post-Byzantium receipts carry `status` (0x1 success, 0x0 reverted).
+ * @param {Record<string, unknown> | null | undefined} receipt
+ */
+export function isSuccessfulReceipt(receipt) {
+  if (!receipt) return false;
+  return String(receipt.status ?? "").toLowerCase() === "0x1";
+}
+
+/**
  * @param {{
  *   txHash: string,
  *   fetchImpl?: typeof fetch,
  *   sleepImpl?: (ms: number) => Promise<void>,
  *   runtimeConfig?: ReturnType<typeof getEthereumRuntimeConfig>,
  * }} input
- * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' }>}
+ * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' | 'failed', failureReason?: string }>}
  */
 export async function fetchTransactionConfirmationState(input) {
   const cfg = input.runtimeConfig ?? getEthereumRuntimeConfig();
@@ -415,6 +434,9 @@ export async function fetchTransactionConfirmationState(input) {
     const txBlock = Number.parseInt(String(txBlockHex), 16);
     if (!Number.isFinite(txBlock) || txBlock < 0) {
       return { confirmations: 0, presence: "missing" };
+    }
+    if (!isSuccessfulReceipt(receipt)) {
+      return { confirmations: 0, presence: "failed", failureReason: "tx_failed" };
     }
 
     const latestHex = await withEthRetry(

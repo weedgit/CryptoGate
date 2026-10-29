@@ -48,6 +48,7 @@ export function mapSplTransferFromTransaction(tx, cfg) {
   const pre = Array.isArray(meta.preTokenBalances) ? meta.preTokenBalances : [];
   const post = Array.isArray(meta.postTokenBalances) ? meta.postTokenBalances : [];
   if (!sig) return null;
+  if (meta.err != null) return null;
 
   const preByIdx = new Map();
   for (const row of pre) {
@@ -188,7 +189,9 @@ export async function fetchTransactionConfirmationState(input) {
       { fetchImpl: input.fetchImpl, apiKey: cfg.apiKey },
     );
     const value = status?.value?.[0];
-    if (value?.err) return { confirmations: 0, presence: "missing" };
+    if (value?.err || tx?.meta?.err) {
+      return { confirmations: 0, presence: "failed", failureReason: "tx_failed" };
+    }
     const conf = value?.confirmations;
     if (typeof conf === "number" && conf >= 0) {
       return { confirmations: conf, presence: "confirmed" };
