@@ -144,3 +144,41 @@ describePg("forced MFA and session lifecycle (H9)", () => {
     assert.equal((await apiFetch(base, "/v1/auth/session", { token })).status, 401);
   });
 });
+
+describePg("login email change needs the password (M18)", () => {
+  it("refuses an email change without the current password", async () => {
+    const { server, base } = await startTestServer();
+    try {
+      const seed = await ensureV032Seed();
+      const user = await createUser({
+        email: `m18-${Date.now()}@paymentgate.local`,
+        password: PASSWORD,
+      });
+      await insertMembership({ orgId: seed.merchantOrgId, userId: user.id, role: "viewer" });
+      const token = (await createSession({ userId: user.id, mfaVerified: true })).token;
+      const next = `m18-new-${Date.now()}@paymentgate.local`;
+      const missing = await apiFetch(base, "/v1/auth/contact/email/send", {
+        method: "POST",
+        token,
+        body: { email: next },
+      });
+      assert.equal(missing.status, 400);
+      assert.equal(missing.json.code, "password_required");
+      const wrong = await apiFetch(base, "/v1/auth/contact/email/send", {
+        method: "POST",
+        token,
+        body: { email: next, currentPassword: "WrongPassword123!" },
+      });
+      assert.equal(wrong.status, 401);
+      const ok = await apiFetch(base, "/v1/auth/contact/email/send", {
+        method: "POST",
+        token,
+        body: { email: next, currentPassword: PASSWORD },
+      });
+      assert.equal(ok.status, 200, JSON.stringify(ok.json));
+    } finally {
+      await stopTestServer(server);
+    }
+  });
+});
+
