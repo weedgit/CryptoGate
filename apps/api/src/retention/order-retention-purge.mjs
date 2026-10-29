@@ -1,6 +1,7 @@
 import { DEFAULT_ORDER_DELETE_DAYS, OrderStatus } from "@paymentgate/domain";
 import { getPool } from "../db/pool.mjs";
 import { findRetentionSettings } from "./retention-store.mjs";
+import { BILLABLE_ORDER_HOLD_DAYS } from "./retention-rules.mjs";
 import { walletGroupOrgIds } from "../sites/site-inherit.mjs";
 
 /** Terminal statuses safe to purge after retention. Never touch open / anomaly. */
@@ -51,6 +52,10 @@ export async function purgeTerminalOrdersBatch(opts) {
        WHERE org_id = ANY($1::uuid[])
          AND status = ANY($2::text[])
          AND created_at < now() - ($3::int * interval '1 day')
+         AND NOT (
+           status = 'completed'
+           AND COALESCE(confirmed_at, updated_at) >= now() - ($5::int * interval '1 day')
+         )
        ORDER BY created_at ASC
        LIMIT $4
      )
@@ -58,7 +63,7 @@ export async function purgeTerminalOrdersBatch(opts) {
      USING doomed
      WHERE po.id = doomed.id
      RETURNING po.id`,
-    [orgIds, PURGEABLE_ORDER_STATUSES, days, limit],
+    [orgIds, PURGEABLE_ORDER_STATUSES, days, limit, BILLABLE_ORDER_HOLD_DAYS],
   );
   return rows.length;
 }

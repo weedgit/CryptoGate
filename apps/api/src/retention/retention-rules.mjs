@@ -1,6 +1,12 @@
 import { DEFAULT_ORDER_DELETE_DAYS } from "@paymentgate/domain";
 
 export const MIN_ORDER_DELETE_DAYS = 7;
+/**
+ * Completed orders stay at least this long after confirmation, whatever orderDeleteDays says:
+ * monthly service bills sum them, and a short retention must not delete billable volume
+ * before the bill is drawn (H10). Covers a full month plus generation slack.
+ */
+export const BILLABLE_ORDER_HOLD_DAYS = 62;
 export const MAX_ORDER_DELETE_DAYS = 3650;
 
 /**
