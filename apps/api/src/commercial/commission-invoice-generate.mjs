@@ -123,23 +123,30 @@ export function isAgentCommissionCatchUpDay(
  * @param {string | number | null | undefined} volumeFee
  */
 export function paidPlatformFeeUsd(subscription, volumeFee) {
-  const sub = Number(subscription);
-  const vol = Number(volumeFee);
-  const s = Number.isFinite(sub) ? sub : 0;
-  const v = Number.isFinite(vol) ? vol : 0;
-  const total = Math.round((s + v) * 100) / 100;
-  return total > 0 ? total : 0;
+  const cents = usdToCents(subscription) + usdToCents(volumeFee);
+  return cents > 0 ? cents / 100 : 0;
 }
 
 /**
+ * Whole cents of a 2-decimal USD amount (bill lines are stored that way). Money is summed in
+ * integer cents: float sums drifted across many bills (review M24).
+ * @param {string | number | null | undefined} value
+ */
+export function usdToCents(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+/**
+ * Commission in USD, computed in integer cents (half-up) from basis points.
  * @param {number} feeCollected
  * @param {string | number} commissionPercent
  */
 export function computeCommissionAmount(feeCollected, commissionPercent) {
-  const fee = Number(feeCollected);
-  const base = Number.isFinite(fee) && fee > 0 ? fee : 0;
-  const bps = Math.round(Number(commissionPercent) * 100) || 0;
-  return Math.round(base * (bps / 10_000) * 100) / 100;
+  const feeCents = BigInt(Math.max(0, usdToCents(feeCollected)));
+  const bps = BigInt(Math.round(Number(commissionPercent) * 100) || 0);
+  if (bps <= 0n) return 0;
+  return Number((feeCents * bps + 5_000n) / 10_000n) / 100;
 }
 
 /** Create an issued invoice only when commission amount is positive. */
@@ -215,25 +222,23 @@ export async function buildInvoiceForAgent(
     }
   }
 
-  let feeCollected = 0;
+  let feeCollectedCents = 0;
   const lines = merchants.map((m) => {
     const bills = billsByOrg.get(m.id) ?? [];
-    let subscription = 0;
-    let volumeFee = 0;
+    let subscriptionCents = 0;
+    let volumeFeeCents = 0;
     /** @type {string | null} */
     let billId = null;
     for (const bill of bills) {
-      const sub = Number(bill.subscription_amount);
-      const vol = Number(bill.volume_fee_amount);
-      if (Number.isFinite(sub)) subscription += sub;
-      if (Number.isFinite(vol)) volumeFee += vol;
+      subscriptionCents += usdToCents(bill.subscription_amount);
+      volumeFeeCents += usdToCents(bill.volume_fee_amount);
       if (!billId) billId = bill.id ?? null;
     }
-    subscription = Math.round(subscription * 100) / 100;
-    volumeFee = Math.round(volumeFee * 100) / 100;
-    const fee = paidPlatformFeeUsd(subscription, volumeFee);
-    const included = fee > 0;
-    if (included) feeCollected += fee;
+    const subscription = subscriptionCents / 100;
+    const volumeFee = volumeFeeCents / 100;
+    const feeCents = Math.max(0, subscriptionCents + volumeFeeCents);
+    const included = feeCents > 0;
+    if (included) feeCollectedCents += feeCents;
     return {
       orgId: m.id,
       name: m.name,
@@ -250,7 +255,7 @@ export async function buildInvoiceForAgent(
     };
   });
 
-  feeCollected = Math.round(feeCollected * 100) / 100;
+  const feeCollected = feeCollectedCents / 100;
   const commissionAmount = computeCommissionAmount(
     feeCollected,
     commissionPercent,
