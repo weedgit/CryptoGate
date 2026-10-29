@@ -67,13 +67,40 @@ describe("@paymentgate/watcher anomaly paths (M3-43 / M3-44)", () => {
         },
       ],
       openOrders: [],
-      knownTxHashes: new Set(["0xdupe"]),
+      knownTxHashes: new Set(["0xdupe|TMain"]),
       apply: async () => {
         throw new Error("should not apply");
       },
     });
     assert.equal(outcomes[0].reason, "duplicate_tx_hash");
     assert.equal(outcomes[0].classified, true);
+  });
+
+  it("a second output of a known tx to another address is still matched (M5)", async () => {
+    const applied = [];
+    await processTransferBatch({
+      transfers: [
+        { toAddress: "THdTwo", amount: "50.00", asset: "USDT", network: "tron", txHash: "0xbatch" },
+      ],
+      openOrders: [
+        {
+          orderId: "22222222-2222-2222-2222-222222222222",
+          matchingMode: "B",
+          payableAmount: "50.00",
+          receiveAddress: "THdTwo",
+          asset: "USDT",
+          network: "tron",
+          memoOrTag: null,
+        },
+      ],
+      knownTxHashes: new Set(["0xbatch|THdOne"]),
+      apply: async (args) => {
+        applied.push(args);
+        return { updated: 1 };
+      },
+    });
+    assert.equal(applied.length, 1);
+    assert.equal(applied[0].result.orderId, "22222222-2222-2222-2222-222222222222");
   });
 
   it("isDuplicateTxHash helper", () => {

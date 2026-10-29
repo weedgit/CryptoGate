@@ -3,6 +3,7 @@
  * M4-20: apply paths are restart-safe (no duplicate status rewrites).
  */
 
+import { canonicalAddress } from "@paymentgate/domain";
 import {
   confirmationWriteNeeded,
   matchWriteNeeded,
@@ -403,20 +404,35 @@ export async function applyMatchResult(db, input) {
 }
 
 /**
+ * Key of one transfer output: a tx can pay several watched addresses (review M5).
+ * @param {string} network
+ * @param {string} txHash
+ * @param {string} toAddress
+ */
+export function transferOutputKey(network, txHash, toAddress) {
+  return `${String(txHash ?? "").trim()}|${canonicalAddress(network, String(toAddress ?? ""))}`;
+}
+
+/**
+ * Outputs (tx hash + receive address) already bound to an order.
  * @param {import("pg").Pool | import("pg").PoolClient} db
  * @param {{ network: string, txHashes: string[] }} input
- * @returns {Promise<Set<string>>}
+ * @returns {Promise<Set<string>>} transferOutputKey values
  */
 export async function listKnownTxHashes(db, input) {
   if (!input.txHashes.length) return new Set();
   const { rows } = await db.query(
-    `SELECT tx_hash
+    `SELECT tx_hash, receive_address
      FROM payment_orders
      WHERE network = $1
        AND tx_hash = ANY($2::text[])`,
     [input.network, input.txHashes],
   );
-  return new Set(rows.map((r) => r.tx_hash).filter(Boolean));
+  return new Set(
+    rows
+      .filter((r) => r.tx_hash)
+      .map((r) => transferOutputKey(input.network, r.tx_hash, r.receive_address)),
+  );
 }
 
 /**

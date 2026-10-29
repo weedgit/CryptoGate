@@ -5,6 +5,7 @@
 import { sameAddress } from "@paymentgate/domain";
 import { matchTransaction } from "@paymentgate/matching";
 import { classifyWrongNetworkOrAsset } from "./classify.mjs";
+import { transferOutputKey } from "../orders/order-store.mjs";
 
 /**
  * @typedef {{
@@ -150,7 +151,7 @@ export async function processTransferBatch(input) {
   const known = input.knownTxHashes ?? new Set();
   const outcomes = [];
   for (const transfer of input.transfers) {
-    if (known.has(transfer.txHash?.trim())) {
+    if (known.has(transferOutputKey(transfer.network, transfer.txHash, transfer.toAddress))) {
       outcomes.push({
         txHash: transfer.txHash,
         skipped: true,

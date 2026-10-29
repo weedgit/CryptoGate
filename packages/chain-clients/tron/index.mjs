@@ -50,7 +50,8 @@ export function dedupeTransfersByTxHash(transfers) {
   const seen = new Set();
   const out = [];
   for (const t of transfers) {
-    const key = `${t.network ?? ""}:${t.txHash}`;
+    // One tx may pay several watched addresses (batch withdrawals): key per output (M5).
+    const key = `${t.network ?? ""}:${t.txHash}:${String(t.toAddress ?? "").trim().toLowerCase()}`;
     if (!t.txHash || seen.has(key)) continue;
     seen.add(key);
     out.push(t);
