@@ -121,7 +121,7 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
   let resultPayload = null;
 
   if (parsed.overrideType === "suspend_merchant") {
-    const updated = await updateOrgStatus(orgId, "paused");
+    const updated = await updateOrgStatus(orgId, "paused", { byPlatform: true });
     if (!updated) {
       sendError(res, 404, "not_found", "Merchant org not found");
       return;

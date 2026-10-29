@@ -78,6 +78,9 @@ export function toOrgAccount(row) {
   if (row.status === "paused" && row.status_reason) {
     account.statusReason = String(row.status_reason);
   }
+  if (row.status === "paused" && row.status_set_by_platform === true) {
+    account.statusSetByPlatform = true;
+  }
   if (row.status === "paused" && row.status_reason_bill_id) {
     account.statusReasonBillId = String(row.status_reason_bill_id);
   }

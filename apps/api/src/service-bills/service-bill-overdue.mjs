@@ -30,6 +30,7 @@ export async function markOverdueServiceBills(now = new Date()) {
       const updated = await updateOrgStatus(orgId, "paused", {
         reason: "Unpaid service bill",
         reasonBillId: billId,
+        byPlatform: true,
       });
       if (updated && updated.status === "paused") {
         pausedOrgIds.push(orgId);

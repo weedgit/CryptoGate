@@ -4,7 +4,7 @@ import { listMemberUserIds } from "./org-delete.mjs";
 import { agentDepthOf } from "./org-rules.mjs";
 
 const ORG_COLS =
-  "id, type, name, parent_id, max_agent_depth, status, status_reason, status_reason_bill_id, country, billing_email, legal_name, icon_key, business_timezone, created_at";
+  "id, type, name, parent_id, max_agent_depth, status, status_reason, status_reason_bill_id, status_set_by_platform, country, billing_email, legal_name, icon_key, business_timezone, created_at";
 const ORG_COLS_LEGACY =
   "id, type, name, parent_id, max_agent_depth, status, country, billing_email, legal_name, icon_key, business_timezone, created_at";
 
@@ -205,16 +205,19 @@ export async function insertOrgAccount(insert) {
 export async function updateOrgStatus(orgId, status, opts = {}) {
   const reason = status === "paused" ? (opts.reason ?? null) : null;
   const reasonBillId = status === "paused" ? (opts.reasonBillId ?? null) : null;
+  // Platform / system pauses can only be lifted by the platform (review M15).
+  const byPlatform = status === "paused" && opts.byPlatform === true;
   try {
     const { rows } = await getPool().query(
       `UPDATE org_accounts
        SET status = $2,
            status_reason = $3,
            status_reason_bill_id = $4,
+           status_set_by_platform = $5,
            updated_at = now()
        WHERE id = $1
        RETURNING ${ORG_COLS}`,
-      [orgId, status, reason, reasonBillId],
+      [orgId, status, reason, reasonBillId, byPlatform],
     );
     return rows[0] ?? null;
   } catch (err) {

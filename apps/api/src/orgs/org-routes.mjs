@@ -436,6 +436,21 @@ export async function handleSetOrgStatus(req, res, orgId) {
     return;
   }
 
+  if (
+    status === "active" &&
+    row.status === "paused" &&
+    row.status_set_by_platform === true &&
+    !caller.platformOperator
+  ) {
+    sendError(
+      res,
+      403,
+      "platform_suspension",
+      "PaymentGate suspended this account; only PaymentGate can lift it",
+    );
+    return;
+  }
+
   if (caller.platformOperator) {
     const ok = await requireMfaStepUp(caller, body?.mfaCode, res);
     if (!ok) return;
@@ -444,6 +459,7 @@ export async function handleSetOrgStatus(req, res, orgId) {
   const updated = await updateOrgStatus(orgId, status, {
     reason: status === "paused" ? reason : null,
     reasonBillId: null,
+    byPlatform: caller.platformOperator === true,
   });
   if (!updated) {
     sendError(res, 404, "not_found", "Org not found");
