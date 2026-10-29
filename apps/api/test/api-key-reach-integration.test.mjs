@@ -133,6 +133,18 @@ describePg("API key reach (H6 / H7)", () => {
     assert.equal(replay.json.code, "nonce_replay");
   });
 
+  it("a suspended merchant's key stops working", async () => {
+    const { getPool } = await import("../src/db/pool.mjs");
+    await getPool().query(`UPDATE org_accounts SET status = 'paused' WHERE id = $1`, [seed.merchantOrgId]);
+    try {
+      const res = await send(signedRequest("GET", `/v1/orders?orgId=${seed.merchantOrgId}`));
+      assert.equal(res.status, 403);
+      assert.equal(res.json.code, "org_paused");
+    } finally {
+      await getPool().query(`UPDATE org_accounts SET status = 'active' WHERE id = $1`, [seed.merchantOrgId]);
+    }
+  });
+
   it("reads orders", async () => {
     const res = await send(signedRequest("GET", `/v1/orders?orgId=${seed.merchantOrgId}`));
     assert.equal(res.status, 200, JSON.stringify(res.json));

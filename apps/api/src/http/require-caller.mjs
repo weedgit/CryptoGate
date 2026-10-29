@@ -2,6 +2,7 @@ import { sendError } from "./json.mjs";
 import { findUserById } from "../auth/users.mjs";
 import { loadCaller, isPlatformOwner } from "../orgs/org-access.mjs";
 import { findMembership } from "../orgs/membership-store.mjs";
+import { findOrgById } from "../orgs/org-store.mjs";
 import { isPlatformOperator } from "../orgs/membership-rules.mjs";
 import { mustEnrollMfa } from "../orgs/role-policy.mjs";
 import { requireSession } from "./require-session.mjs";
@@ -106,6 +107,12 @@ async function resolveCaller(req, res) {
     const membership = await findMembership(auth.key.orgId, auth.key.userId);
     if (!membership) {
       sendError(res, 401, "signature_invalid", signingRejectMessage());
+      return null;
+    }
+    // A suspended merchant's integration keys stop working with the account.
+    const keyOrg = await findOrgById(auth.key.orgId);
+    if (keyOrg?.status === "paused") {
+      sendError(res, 403, "org_paused", "This account is suspended");
       return null;
     }
     const memberships = [membership];
