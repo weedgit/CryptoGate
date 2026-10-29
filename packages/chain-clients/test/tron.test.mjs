@@ -694,3 +694,56 @@ describe("@paymentgate/chain-clients/tron pagination (M4)", () => {
     assert.match(urls[1], /fingerprint=fp1/);
   });
 });
+
+describe("@paymentgate/chain-clients/tron native TRX hex addresses (M8)", () => {
+  it("matches TronGrid's hex to_address against base58 watched addresses", async () => {
+    const { fetchNativeTrxTransfersForAddresses } = await import("../tron/trongrid.mjs");
+    const { tronBase58ToHex } = await import("../tron/address.mjs");
+    const fetchImpl = async () => ({
+      ok: true,
+      async json() {
+        return {
+          data: [
+            {
+              txID: "hex-tx",
+              block_timestamp: 1_760_000_000_000,
+              ret: [{ contractRet: "SUCCESS" }],
+              raw_data: {
+                contract: [
+                  {
+                    type: "TransferContract",
+                    parameter: {
+                      value: {
+                        amount: 3_000_000,
+                        to_address: tronBase58ToHex(PAYEE),
+                        owner_address: tronBase58ToHex(USDT_TRC20_CONTRACT),
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        };
+      },
+    });
+    const result = await fetchNativeTrxTransfersForAddresses({
+      watchedAddresses: [PAYEE],
+      fetchImpl: /** @type {typeof fetch} */ (fetchImpl),
+      runtimeConfig: {
+        configured: true,
+        nativeAsset: true,
+        baseUrl: "https://api.trongrid.io",
+        apiKey: "",
+        decimals: 6,
+        asset: "TRX",
+        network: "tron",
+      },
+    });
+    assert.equal(result.transfers.length, 1);
+    assert.equal(result.transfers[0].toAddress, PAYEE);
+    assert.equal(result.transfers[0].fromAddress, USDT_TRC20_CONTRACT);
+    assert.equal(result.transfers[0].amount, "3");
+  });
+});
+

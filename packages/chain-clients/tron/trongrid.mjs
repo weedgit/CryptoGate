@@ -5,7 +5,7 @@
 
 import { fetchWithTimeout } from "../fetch-timeout.mjs";
 import { mapPool } from "../map-pool.mjs";
-import { tronBase58ToHex } from "./address.mjs";
+import { tronBase58ToHex, tronHexToBase58 } from "./address.mjs";
 import { minorToMajor } from "./amount.mjs";
 import {
   DEFAULT_TRON_MAX_ATTEMPTS,
@@ -284,9 +284,12 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
         /** @type {Record<string, unknown>} */ (first.parameter ?? {}).value ?? {}
       );
       const amountSun = Number(value.amount);
-      const toAddress = String(row.toAddress ?? value.to_address ?? "").trim();
-      const ownerRaw = value.owner_address ?? row.from ?? row.ownerAddress;
-      const fromAddress = String(ownerRaw ?? "").trim() || undefined;
+      // Contract parameters come back as hex (41…) unless visible=true; watched addresses
+      // are base58, so convert or nothing ever matches (review M8).
+      const toRaw = String(row.toAddress ?? value.to_address ?? "").trim();
+      const toAddress = tronHexToBase58(toRaw) ?? toRaw;
+      const ownerRaw = String(value.owner_address ?? row.from ?? row.ownerAddress ?? "").trim();
+      const fromAddress = (tronHexToBase58(ownerRaw) ?? ownerRaw) || undefined;
       const txHash = String(row.txID ?? row.transaction_id ?? "").trim();
       if (!toAddress || !watched.has(toAddress) || !Number.isFinite(amountSun) || !txHash) {
         continue;
