@@ -317,3 +317,18 @@ describe("@paymentgate/matching mode-b match (M1-32 / M3-60)", () => {
     );
   });
 });
+
+describe("@paymentgate/matching EVM address case (H1)", () => {
+  it("matches a checksummed receive address against a lowercase transfer", async () => {
+    const checksummed = "0x52908400098527886E0F7030069857D2E4169EE7";
+    const result = await matchTransaction({
+      ...baseTx,
+      network: "ethereum",
+      toAddress: checksummed.toLowerCase(),
+      candidates: [{ ...baseCandidate, network: "ethereum", receiveAddress: checksummed }],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-1");
+  });
+});
+

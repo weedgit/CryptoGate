@@ -93,7 +93,7 @@ export function evmAddressFromPublicKey(compressedPublicKey) {
 /**
  * @param {string} address
  */
-function toEip55Checksum(address) {
+export function toEip55Checksum(address) {
   const lower = address.toLowerCase().replace(/^0x/, "");
   const hash = keccak_256(new TextEncoder().encode(lower));
   let out = "0x";

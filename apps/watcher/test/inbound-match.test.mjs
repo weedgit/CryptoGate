@@ -24,6 +24,30 @@ const baseTransfer = {
 };
 
 describe("@paymentgate/watcher inbound match wire (M3-41)", () => {
+  it("matches a checksummed Ethereum order to the lowercase RPC address (H1)", async () => {
+    const checksummed = "0x52908400098527886E0F7030069857D2E4169EE7";
+    const { applied, result } = await matchInboundTransfer({
+      transfer: {
+        ...baseTransfer,
+        network: "ethereum",
+        toAddress: checksummed.toLowerCase(),
+      },
+      openOrders: [{ ...baseOrder, network: "ethereum", receiveAddress: checksummed }],
+    });
+    assert.equal(applied, true);
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, baseOrder.orderId);
+  });
+
+  it("keeps TRON address comparison case-sensitive", async () => {
+    const { applied, result } = await matchInboundTransfer({
+      transfer: { ...baseTransfer, toAddress: baseTransfer.toAddress.toLowerCase() },
+      openOrders: [baseOrder],
+    });
+    assert.equal(applied, false);
+    assert.equal(result.reason, "no_open_order_at_address");
+  });
+
   it("exact Mode B match binds orderId", async () => {
     const { applied, result, mode } = await matchInboundTransfer({
       transfer: baseTransfer,

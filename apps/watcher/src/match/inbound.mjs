@@ -2,6 +2,7 @@
  * Map inbound transfers → matchTransaction → DB updates (M3-41 / M3-43 / M3-44).
  * Matching stays in @paymentgate/matching; watcher never imports apps/api.
  */
+import { sameAddress } from "@paymentgate/domain";
 import { matchTransaction } from "@paymentgate/matching";
 import { classifyWrongNetworkOrAsset } from "./classify.mjs";
 
@@ -50,9 +51,9 @@ export async function matchInboundTransfer(input) {
 
   const atAddressExact = input.openOrders.filter(
     (o) =>
-      o.receiveAddress.trim() === to &&
       o.asset === transfer.asset &&
-      o.network === transfer.network,
+      o.network === transfer.network &&
+      sameAddress(transfer.network, o.receiveAddress, to),
   );
 
   if (atAddressExact.length === 0) {

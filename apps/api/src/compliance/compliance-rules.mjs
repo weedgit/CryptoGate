@@ -1,4 +1,7 @@
-import { settlementAssetsForNetwork } from "../settlement/settlement-rules.mjs";
+import {
+  normalizeSettlementAddress,
+  settlementAssetsForNetwork,
+} from "../settlement/settlement-rules.mjs";
 
 export const COMPLIANCE_OVERRIDE_TYPES = [
   "settlement_address",
@@ -105,7 +108,11 @@ export function validateComplianceOverrideBody(body) {
     if (assets.length === 0 || (asset && !assets.includes(asset))) {
       return fail(422, "asset_network_disabled", "Asset and network are not enabled");
     }
-    settlement = { asset: asset || assets[0], assets, network, address };
+    const normalized = normalizeSettlementAddress(network, address);
+    if (!normalized.ok) {
+      return fail(normalized.status, normalized.code, normalized.message);
+    }
+    settlement = { asset: asset || assets[0], assets, network, address: normalized.address };
   }
 
   return {

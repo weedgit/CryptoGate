@@ -9,6 +9,7 @@ import {
   NetworkId,
   OrderStatus,
   getAssetNetworkConfig,
+  sameAddress,
   type AddressSource as AddressSourceType,
   type AssetCode as AssetCodeType,
   type NetworkId as NetworkIdType,
@@ -143,7 +144,7 @@ export async function assignModeS(input: AssignInput): Promise<AssignResult> {
   if (/\s/.test(hdAddress)) {
     throw new Error("claimHdPoolAddress receiveAddress must not contain whitespace");
   }
-  if (hdAddress === address) {
+  if (sameAddress(network, hdAddress, address)) {
     throw new Error(
       "claimHdPoolAddress must not return the main settlement address",
     );

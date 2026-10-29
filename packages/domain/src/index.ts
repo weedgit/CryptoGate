@@ -534,6 +534,25 @@ export function resolveHdDerivationFamily(
   return null;
 }
 
+/** True for networks whose addresses are 0x-hex (EIP-55 case is display-only). */
+export function isEvmNetwork(network: string): boolean {
+  return EVM_NETWORKS.has(network);
+}
+
+/**
+ * Comparable form of an on-chain address. EVM hex is case-insensitive, so a checksummed
+ * (EIP-55) address and the lowercase form an RPC returns are the same account.
+ */
+export function canonicalAddress(network: string, address: string): string {
+  const trimmed = address.trim();
+  return EVM_NETWORKS.has(network) ? trimmed.toLowerCase() : trimmed;
+}
+
+/** Same account on `network` (see canonicalAddress). */
+export function sameAddress(network: string, a: string, b: string): boolean {
+  return canonicalAddress(network, a) === canonicalAddress(network, b);
+}
+
 /** True when Mode S can derive HD pool addresses for this network. */
 export function supportsModeSHdDerivation(network: string): boolean {
   return resolveHdDerivationFamily(network) != null;

@@ -9,6 +9,7 @@ import {
   NetworkId,
   OrderStatus,
   getAssetNetworkConfig,
+  sameAddress,
   type AssetCode as AssetCodeType,
   type AssetNetworkConfig,
   type NetworkId as NetworkIdType,
@@ -188,10 +189,6 @@ export async function assignModeD(input: AssignInput): Promise<AssignResult> {
   return assignModeDForConfig(input, config);
 }
 
-function addressesEqual(a: string, b: string): boolean {
-  return a.trim() === b.trim();
-}
-
 function isExpired(order: MatchCandidateOrder, nowMs: number): boolean {
   if (!order.expiresAt) return false;
   const exp = Date.parse(order.expiresAt);
@@ -250,9 +247,9 @@ export async function matchModeDForConfig(
 
   const scoped = input.candidates.filter(
     (o) =>
-      addressesEqual(o.receiveAddress, toAddress) &&
       o.asset === input.asset &&
-      o.network === input.network,
+      o.network === input.network &&
+      sameAddress(input.network, o.receiveAddress, toAddress),
   );
 
   if (scoped.length === 0) {

@@ -1,3 +1,4 @@
+import { sameAddressSql } from "../db/address-sql.mjs";
 import { getPool } from "../db/pool.mjs";
 import { toPaymentOrder } from "./order-map.mjs";
 import { appendPaymentOrderScope } from "./order-scope-sql.mjs";
@@ -319,7 +320,7 @@ export async function listReservedPayableAmounts(client, query) {
      WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
-       AND receive_address = $4
+       AND ${sameAddressSql("receive_address", "$4", query.network)}
        AND status = ANY($5::text[])
        AND ($6::uuid IS NULL OR id <> $6::uuid)`,
     [
@@ -353,7 +354,7 @@ export async function listReservedMemoOrTags(client, query) {
      WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
-       AND receive_address = $4
+       AND ${sameAddressSql("receive_address", "$4", query.network)}
        AND memo_or_tag IS NOT NULL
        AND status = ANY($5::text[])
        AND ($6::uuid IS NULL OR id <> $6::uuid)`,
@@ -393,7 +394,7 @@ export async function findModeBSameAmountCreateConflict(client, query) {
      WHERE o.org_id = ANY($1::uuid[])
        AND o.asset = $2
        AND o.network = $3
-       AND o.receive_address = $4
+       AND ${sameAddressSql("o.receive_address", "$4", query.network)}
        AND o.payable_amount::numeric = $5::numeric
        AND o.status = ANY($6::text[])
        AND ($7::uuid IS NULL OR o.id <> $7::uuid)
@@ -740,7 +741,7 @@ export async function findModeDSameMemoCreateConflict(client, query) {
      WHERE o.org_id = ANY($1::uuid[])
        AND o.asset = $2
        AND o.network = $3
-       AND o.receive_address = $4
+       AND ${sameAddressSql("o.receive_address", "$4", query.network)}
        AND o.memo_or_tag = $5
        AND o.status = ANY($6::text[])
        AND ($7::uuid IS NULL OR o.id <> $7::uuid)

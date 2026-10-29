@@ -10,6 +10,7 @@ import {
   NetworkId,
   OrderStatus,
   getAssetNetworkConfig,
+  sameAddress,
   type AssetCode as AssetCodeType,
   type MatchingMode,
   type NetworkId as NetworkIdType,
@@ -37,10 +38,6 @@ function isAssetCode(value: string): value is AssetCodeType {
 
 function isNetworkId(value: string): value is NetworkIdType {
   return (Object.values(NetworkId) as string[]).includes(value);
-}
-
-function addressesEqual(a: string, b: string): boolean {
-  return a.trim() === b.trim();
 }
 
 function isExpired(order: MatchCandidateOrder, nowMs: number): boolean {
@@ -119,9 +116,9 @@ export async function matchExactPayable(
 
   const scoped = input.candidates.filter(
     (o) =>
-      addressesEqual(o.receiveAddress, toAddress) &&
       o.asset === input.asset &&
-      o.network === input.network,
+      o.network === input.network &&
+      sameAddress(input.network, o.receiveAddress, toAddress),
   );
 
   if (scoped.length === 0) {

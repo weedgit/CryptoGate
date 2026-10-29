@@ -1,3 +1,5 @@
+import { sameAddress } from "@paymentgate/domain";
+import { sameAddressSql } from "../db/address-sql.mjs";
 import { getPool } from "../db/pool.mjs";
 import { findNetworkSettlementAddress } from "../settlement/settlement-store.mjs";
 import { getActiveXpub } from "../xpub/xpub-store.mjs";
@@ -103,7 +105,7 @@ export async function claimHdPoolAddress(client, query) {
       xpub,
       hdIndex,
     );
-    if (main && receiveAddress === main) continue;
+    if (main && sameAddress(query.network, receiveAddress, main)) continue;
 
     const inserted = await insertInUseRow(client, {
       orgId: query.merchantId,
@@ -232,7 +234,7 @@ async function claimFreeRow(client, orgId, asset, network, mainAddress) {
          AND asset = $2
          AND network = $3
          AND status = 'FREE'
-         AND receive_address <> $4
+         AND NOT (${sameAddressSql("receive_address", "$4", network)})
        ORDER BY hd_index ASC
        FOR UPDATE SKIP LOCKED
        LIMIT 1
