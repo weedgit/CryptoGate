@@ -87,12 +87,24 @@ export function startWebhookDeliveryJob(options = {}) {
       }
     });
 
+  // One tick at a time: a slow endpoint made 5 s ticks overlap and re-post (review M20).
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      await run();
+    } finally {
+      running = false;
+    }
+  };
+
   const handle = setInterval(() => {
-    void run();
+    void tick();
   }, resolvedInterval);
   if (typeof handle.unref === "function") handle.unref();
 
-  void run();
+  void tick();
 
   return {
     stop() {

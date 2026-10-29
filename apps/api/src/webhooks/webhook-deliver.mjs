@@ -74,6 +74,7 @@ export async function deliverWebhookOnce(row, opts = {}) {
   if (isWebhookDeliverySuccess(httpStatus)) {
     await updateResult({
       deliveryId: row.id,
+      claimedAttempt: row.attempt,
       status: "success",
       attempt: row.attempt,
       httpStatus,
@@ -86,6 +87,7 @@ export async function deliverWebhookOnce(row, opts = {}) {
   if (next.status === "failed") {
     await updateResult({
       deliveryId: row.id,
+      claimedAttempt: row.attempt,
       status: "failed",
       attempt: row.attempt,
       httpStatus,
@@ -105,6 +107,7 @@ export async function deliverWebhookOnce(row, opts = {}) {
 
   await updateResult({
     deliveryId: row.id,
+    claimedAttempt: row.attempt,
     status: "pending",
     attempt: next.attempt,
     httpStatus,
