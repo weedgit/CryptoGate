@@ -119,7 +119,8 @@ export async function sendSms(message) {
   const text = typeof message?.text === "string" ? message.text : "";
 
   if (!isTwilioConfigured()) {
-    console.info(`[sms:stub] to=${to} text=${text}`);
+    // The text carries verification codes: log only that a message would have gone out.
+    console.info(`[sms:stub] to=${to} chars=${text.length}`);
     return { delivered: false, mode: "stub" };
   }
 

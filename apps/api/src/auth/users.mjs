@@ -41,6 +41,15 @@ const USER_ROW_WITH_NAMES = `id, email, mfa_enrolled_at, mfa_pending_secret, dis
             email_verified_at, phone, phone_verified_at`;
 
 /**
+ * One plain address (no lists, display names or spaces), at most 254 chars.
+ * @param {string} email
+ */
+export function isSingleEmailAddress(email) {
+  const value = String(email ?? "");
+  return value.length <= 254 && /^[^\s@,;<>"'()]+@[^\s@,;<>"'()]+\.[^\s@,;<>"'()]+$/.test(value);
+}
+
+/**
  * Normalize email for storage and lookup (lower-case trim).
  * @param {string} email
  */
@@ -57,7 +66,7 @@ export const INVITE_TEMP_PASSWORD_TTL_DAYS = 7;
  */
 export async function createUser(input) {
   const email = normalizeEmail(input.email);
-  if (!email || !email.includes("@")) {
+  if (!email || !isSingleEmailAddress(email)) {
     const err = new Error("Valid email is required");
     err.code = "email_invalid";
     throw err;
@@ -535,7 +544,7 @@ export async function markEmailVerified(userId) {
  */
 export async function setUserEmail(userId, email) {
   const next = normalizeEmail(typeof email === "string" ? email : "");
-  if (!next || !next.includes("@") || next.length > 254) {
+  if (!next || !isSingleEmailAddress(next)) {
     const err = new Error("Valid email is required");
     err.code = "email_invalid";
     throw err;
