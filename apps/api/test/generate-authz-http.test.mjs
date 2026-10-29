@@ -6,6 +6,7 @@ import { createUser, findUserByEmail } from "../src/auth/users.mjs";
 import { insertMembership } from "../src/orgs/membership-store.mjs";
 import { findPlatformOrg } from "../src/orgs/org-store.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   closePool,
   hasPostgres,
@@ -72,11 +73,13 @@ describePg("POST /v1/service-bills/generate — Owner only (HTTP)", () => {
       userId: ownerUser.id,
       role: "owner",
     });
+    await enrollTestMfa(ownerUser.id);
     await insertMembership({
       orgId: platform.id,
       userId: adminUser.id,
       role: "administrator",
     });
+    await enrollTestMfa(adminUser.id);
 
     ownerToken = (await createSession({ userId: ownerUser.id, mfaVerified: true }))
       .token;

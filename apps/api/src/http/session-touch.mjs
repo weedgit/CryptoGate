@@ -23,6 +23,7 @@ export async function touchSessionFromCookie(res, token, userId, sessionExpiresA
   }
   const expiresAt = await extendSessionByToken(token, { ttlMs });
   if (!expiresAt) return;
-  const maxAgeSec = Math.max(60, Math.floor(ttlMs / 1000));
+  // The extension stops at the session's absolute lifetime; the cookie follows it.
+  const maxAgeSec = Math.max(60, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
   res.setHeader("Set-Cookie", sessionCookie(token, { maxAgeSec }));
 }

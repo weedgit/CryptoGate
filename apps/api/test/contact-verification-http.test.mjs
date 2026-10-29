@@ -11,6 +11,7 @@ import {
   isSetupAllowedMutation,
 } from "../src/auth/contact-verification.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   closePool,
   hasPostgres,
@@ -98,10 +99,11 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
       userId: user.id,
       role: "owner",
     });
+    await enrollTestMfa(user.id);
 
     const { server, base } = await startTestServer();
     try {
-      const token = (await createSession({ userId: user.id, mfaVerified: true }))
+      let token = (await createSession({ userId: user.id, mfaVerified: true }))
         .token;
 
       const blocked = await apiFetch(base, "/v1/orders", {
@@ -123,6 +125,11 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
       });
       assert.equal(reset.status, 204);
       assert.equal((await findUserById(user.id)).emailVerified, true);
+
+      // A password reset ends every existing session (H9); continue on a fresh one.
+      const revoked = await apiFetch(base, "/v1/auth/session", { token });
+      assert.equal(revoked.status, 401);
+      token = (await createSession({ userId: user.id, mfaVerified: true })).token;
 
       const stillPhone = await apiFetch(base, "/v1/orders", {
         method: "POST",

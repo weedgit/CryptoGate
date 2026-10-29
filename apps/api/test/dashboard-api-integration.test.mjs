@@ -13,6 +13,7 @@ import { findPlatformOrg, insertOrgAccount } from "../src/orgs/org-store.mjs";
 import { clearDashboardCache } from "../src/dashboard/dashboard-cache.mjs";
 import { recordRateSamples, resetRateSampleClock } from "../src/rates/rate-samples-store.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   closePool,
   hasPostgres,
@@ -41,6 +42,7 @@ describePg("dashboard aggregates (Postgres integration)", () => {
   async function user(key, orgId, role) {
     const u = await createUser({ email: `${key}-${randomUUID()}@dash.test`, password: "DashTestPass12!" });
     await insertMembership({ orgId, userId: u.id, role });
+    await enrollTestMfa(u.id);
     const s = await createSession({ userId: u.id, mfaVerified: true });
     tokens[key] = s.token;
     return u.id;

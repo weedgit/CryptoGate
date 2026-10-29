@@ -15,6 +15,7 @@ import {
   insertMerchantCommercial,
 } from "../src/commercial/merchant-commercial-store.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   closePool,
   hasPostgres,
@@ -97,6 +98,7 @@ describePg("find missed invoices (Postgres integration)", () => {
     platformId = platform.id;
     const u = await createUser({ email: `${prefix}@mi.test`, password: "MissedTest12!" });
     await insertMembership({ orgId: platform.id, userId: u.id, role: "owner" });
+    await enrollTestMfa(u.id);
     token = (await createSession({ userId: u.id, mfaVerified: true })).token;
     ({ server, base } = await startTestServer());
   });

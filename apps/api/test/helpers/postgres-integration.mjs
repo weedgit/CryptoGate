@@ -16,6 +16,21 @@ export const apiRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 process.env.POS_PIN_PEPPER ??= "integration-test-pos-pin-pepper-0123456789abcdef";
 
+/**
+ * Mark a test user as TOTP-enrolled. Platform and merchant Owners/Admins must enroll before
+ * the API serves them (H9), as the portal already requires.
+ * @param {string} userId
+ */
+export async function enrollTestMfa(userId) {
+  await getPool().query(
+    `UPDATE users
+     SET mfa_secret = COALESCE(mfa_secret, 'JBSWY3DPEHPK3PXP'),
+         mfa_enrolled_at = COALESCE(mfa_enrolled_at, now())
+     WHERE id = $1`,
+    [userId],
+  );
+}
+
 export function hasPostgres() {
   return Boolean(process.env.DATABASE_URL?.trim());
 }
@@ -153,6 +168,7 @@ export async function ensureV032Seed() {
     userId: platformUser.id,
     role: "owner",
   });
+  await enrollTestMfa(platformUser.id);
 
   const pool = getPool();
   const merchantName = `${SEED_PREFIX}merchant`;

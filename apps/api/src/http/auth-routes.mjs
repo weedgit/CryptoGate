@@ -37,7 +37,10 @@ import {
   createSession,
   findActiveSessionByToken,
   markSessionMfaVerified,
+  revokeAllSessionsForUser,
+  revokeOtherSessionsForUser,
   revokeSessionByToken,
+  rotateSessionToken,
 } from "../auth/sessions.mjs";
 import { ALLOWED_SESSION_TIMEOUT_MINUTES } from "../platform-settings/org-policy-store.mjs";
 import { ttlMsForUser } from "./session-ttl.mjs";
@@ -47,7 +50,7 @@ import {
   sessionCookie,
 } from "./cookies.mjs";
 import { requireCaller } from "./require-caller.mjs";
-import { requireSession } from "./require-session.mjs";
+import { requireMfaSession, requireSession } from "./require-session.mjs";
 import { readJsonBody, sendError, sendJson } from "./json.mjs";
 import { listMembershipsForUser } from "../orgs/membership-store.mjs";
 import { canEnrollMfa } from "../orgs/role-policy.mjs";
@@ -65,6 +68,20 @@ const INVALID_MFA = "Invalid MFA code";
 function setSessionCookie(res, token, ttlMs) {
   const maxAgeSec = Math.max(60, Math.floor(ttlMs / 1000));
   res.setHeader("Set-Cookie", sessionCookie(token, { maxAgeSec }));
+}
+
+/**
+ * New token for a session that just passed MFA, so a token captured before the step-up
+ * (or fixed by an attacker) stops working (H9).
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} token
+ * @param {string} userId
+ */
+async function rotateSessionCookie(res, token, userId) {
+  const next = await rotateSessionToken(token);
+  if (!next) return;
+  const profile = await findUserById(userId);
+  setSessionCookie(res, next, ttlMsForUser(profile));
 }
 
 export async function sessionPayload(user, memberships) {
@@ -141,7 +158,8 @@ export async function handleLogin(req, res) {
   });
   setSessionCookie(res, created.token, ttlMs);
   sendJson(res, 200, {
-    session: await sessionPayload(profile ?? user),
+    // Before TOTP the caller has only proven the password: no org memberships yet (H9).
+    session: await sessionPayload(profile ?? user, user.mfaEnrolled ? [] : undefined),
     mfaRequired: user.mfaEnrolled,
   });
 }
@@ -276,6 +294,7 @@ export async function handleMfaReset(req, res) {
   }
 
   await clearUserMfa(user.id);
+  await revokeOtherSessionsForUser(user.id, caller.token);
   await insertAuditEvent({
     actorUserId: user.id,
     action: AUDIT_ACTIONS.mfaReset,
@@ -321,6 +340,7 @@ export async function handleMfaVerify(req, res) {
     }
     await activatePendingMfa(user.id);
     await markSessionMfaVerified(auth.token);
+    await rotateSessionCookie(res, auth.token, user.id);
     await insertAuditEvent({
       actorUserId: user.id,
       action: AUDIT_ACTIONS.mfaVerifyEnroll,
@@ -336,6 +356,7 @@ export async function handleMfaVerify(req, res) {
       return;
     }
     await markSessionMfaVerified(auth.token);
+    await rotateSessionCookie(res, auth.token, user.id);
     await insertAuditEvent({
       actorUserId: user.id,
       action: AUDIT_ACTIONS.mfaVerifyLogin,
@@ -415,7 +436,7 @@ function isValidIanaTimezone(tz) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handlePatchProfile(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
 
   let body;
@@ -563,7 +584,7 @@ export async function handlePatchProfile(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleChangePassword(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
 
   let body;
@@ -605,6 +626,7 @@ export async function handleChangePassword(req, res) {
   }
 
   await updateUserPassword(user.id, newPassword);
+  await revokeOtherSessionsForUser(user.id, auth.token);
   await insertAuditEvent({
     actorUserId: user.id,
     action: AUDIT_ACTIONS.passwordResetComplete,
@@ -647,6 +669,7 @@ export async function handleResetPassword(req, res) {
   }
 
   await updateUserPassword(match.userId, password);
+  await revokeAllSessionsForUser(match.userId);
   await markPasswordResetUsed(token);
   await markEmailVerified(match.userId);
   await insertAuditEvent({
@@ -663,7 +686,7 @@ export async function handleResetPassword(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleGetPosPinStatus(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
   const configured = await userHasPosPin(auth.userId);
   sendJson(res, 200, { configured });
@@ -676,7 +699,7 @@ export async function handleGetPosPinStatus(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handlePutPosPin(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
   sendError(
     res,
@@ -693,7 +716,7 @@ export async function handlePutPosPin(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleDeletePosPin(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
 
   let body;
@@ -733,7 +756,7 @@ export async function handleDeletePosPin(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleVerifyPosPin(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
 
   let body;

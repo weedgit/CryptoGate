@@ -435,8 +435,9 @@ export async function authenticateUser(email, password) {
 /**
  * @param {string} userId
  * @param {string} password
+ * @param {{ mustChange?: boolean }} [opts] mustChange: someone else chose it (support edit)
  */
-export async function updateUserPassword(userId, password) {
+export async function updateUserPassword(userId, password, opts = {}) {
   const policy = validatePassword(password);
   if (!policy.ok) {
     const err = new Error(policy.message);
@@ -447,10 +448,10 @@ export async function updateUserPassword(userId, password) {
   const pool = getPool();
   await pool.query(
     `UPDATE users
-     SET password_hash = $2, must_change_password = false, password_expires_at = NULL,
+     SET password_hash = $2, must_change_password = $3, password_expires_at = NULL,
          updated_at = now()
      WHERE id = $1`,
-    [userId, passwordHash],
+    [userId, passwordHash, opts.mustChange === true],
   );
 }
 

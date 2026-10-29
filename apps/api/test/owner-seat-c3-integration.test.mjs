@@ -9,6 +9,7 @@ import { createSession } from "../src/auth/sessions.mjs";
 import { createUser } from "../src/auth/users.mjs";
 import { insertMembership } from "../src/orgs/membership-store.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   ensureV032Seed,
   hasPostgres,
@@ -44,6 +45,7 @@ describePg("owner seats are Owner / Platform Owner only (C3)", () => {
     });
     adminId = admin.id;
     await insertMembership({ orgId: seed.platformOrgId, userId: admin.id, role: "administrator" });
+    await enrollTestMfa(admin.id);
     adminToken = (await createSession({ userId: admin.id, mfaVerified: true })).token;
     const viewer = await createUser({
       email: `c3-viewer-${stamp}@paymentgate.local`,
@@ -51,6 +53,7 @@ describePg("owner seats are Owner / Platform Owner only (C3)", () => {
     });
     viewerId = viewer.id;
     await insertMembership({ orgId: seed.merchantOrgId, userId: viewer.id, role: "viewer" });
+    await enrollTestMfa(viewer.id);
   });
 
   after(async () => {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { HDKey } from "@scure/bip32";
 import { resolvePlatformFeeNetwork } from "@paymentgate/domain";
 import {
+  enrollTestMfa,
   closePool,
   hasPostgres,
   runMigrations,
@@ -158,7 +159,9 @@ describe("order re-quote + pricing kill switch (Postgres integration)", { skip }
     const owner = await ensureUser(`${PREFIX}owner-${run}@paymentgate.local`);
     const viewer = await ensureUser(`${PREFIX}viewer-${run}@paymentgate.local`);
     await insertMembership({ orgId: merchantId, userId: owner.id, role: "owner" });
+    await enrollTestMfa(owner.id);
     await insertMembership({ orgId: merchantId, userId: viewer.id, role: "viewer" });
+    await enrollTestMfa(viewer.id);
     ownerToken = (await createSession({ userId: owner.id, mfaVerified: true })).token;
     viewerToken = (await createSession({ userId: viewer.id, mfaVerified: true })).token;
 

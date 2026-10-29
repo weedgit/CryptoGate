@@ -11,6 +11,7 @@ import { getPool } from "../src/db/pool.mjs";
 import { insertMembership } from "../src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../src/orgs/org-store.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   closePool,
   hasPostgres,
@@ -47,6 +48,7 @@ describePg("service bills paging (Postgres integration)", () => {
   async function user(key, orgId, role) {
     const u = await createUser({ email: `${key}-${randomUUID()}@bills.test`, password: "BillsTestPass12!" });
     await insertMembership({ orgId, userId: u.id, role });
+    await enrollTestMfa(u.id);
     const s = await createSession({ userId: u.id, mfaVerified: true });
     tokens[key] = s.token;
   }

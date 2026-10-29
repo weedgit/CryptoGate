@@ -1,4 +1,5 @@
 import { findActiveSessionByToken } from "../auth/sessions.mjs";
+import { findUserById } from "../auth/users.mjs";
 import { findMembership } from "../orgs/membership-store.mjs";
 import { isPosSessionPathAllowed } from "../pos/pos-session-scope.mjs";
 import { getSessionToken } from "./cookies.mjs";
@@ -63,4 +64,24 @@ export async function requireSession(req, res) {
     terminalId: row.terminalId,
     terminalOrgId: row.terminalOrgId,
   };
+}
+
+/**
+ * Cookie session that has passed MFA when the account is enrolled. For requireSession-only
+ * routes that change credentials or POS access (password, profile, POS PIN): a password alone
+ * must not reach them (H9).
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+export async function requireMfaSession(req, res) {
+  const session = await requireSession(req, res);
+  if (!session) return null;
+  if (!session.mfaVerified) {
+    const user = await findUserById(session.userId);
+    if (user?.mfaEnrolled) {
+      sendError(res, 401, "mfa_required", "MFA verification required");
+      return null;
+    }
+  }
+  return session;
 }

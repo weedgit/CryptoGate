@@ -3,6 +3,7 @@ import { findUserById } from "../auth/users.mjs";
 import { loadCaller, isPlatformOwner } from "../orgs/org-access.mjs";
 import { findMembership } from "../orgs/membership-store.mjs";
 import { isPlatformOperator } from "../orgs/membership-rules.mjs";
+import { mustEnrollMfa } from "../orgs/role-policy.mjs";
 import { requireSession } from "./require-session.mjs";
 import { authenticateApiKeyRequest } from "../signing/verify-api-key.mjs";
 import { signingRejectMessage } from "../signing/signing-rules.mjs";
@@ -36,13 +37,16 @@ export function assertApiKeyScope(caller, res, scope) {
 }
 
 /**
- * Only route (besides requireSession-only auth routes) open to a session whose account still
- * has to replace its temporary password.
+ * Routes (besides requireSession-only auth routes) open to a session whose account still has
+ * a forced setup step: replace its temporary password (C2), then enroll MFA (H9).
  * @param {import("node:http").IncomingMessage} req
+ * @param {"password" | "mfa"} step
  */
-function isPasswordChangePendingAllowed(req) {
+function isPendingSetupAllowed(req, step) {
+  const method = req.method ?? "GET";
   const path = new URL(req.url ?? "/", "http://localhost").pathname;
-  return (req.method ?? "GET") === "GET" && path === "/v1/auth/session";
+  if (method === "GET" && path === "/v1/auth/session") return true;
+  return step === "mfa" && method === "POST" && path === "/v1/auth/mfa/enroll";
 }
 
 /**
@@ -125,7 +129,7 @@ async function resolveCaller(req, res) {
     return null;
   }
   // Temporary (invite) passwords: nothing but the session read until changed (C2).
-  if (!session.terminalId && user?.mustChangePassword && !isPasswordChangePendingAllowed(req)) {
+  if (!session.terminalId && user?.mustChangePassword && !isPendingSetupAllowed(req, "password")) {
     sendError(
       res,
       403,
@@ -139,6 +143,16 @@ async function resolveCaller(req, res) {
   if (session.terminalId) {
     const memberships = caller.memberships.filter((m) => m.orgId === session.terminalOrgId);
     return { ...session, memberships, platformOwner: false, platformOperator: false };
+  }
+  // Platform / merchant Owners and Admins must enroll before anything else (H9); the portal
+  // gate alone could be skipped by calling the API directly.
+  if (
+    mustEnrollMfa(caller.memberships) &&
+    !user?.mfaEnrolled &&
+    !isPendingSetupAllowed(req, "mfa")
+  ) {
+    sendError(res, 403, "mfa_enrollment_required", "Set up two-factor authentication to continue");
+    return null;
   }
   return { ...session, ...caller };
 }

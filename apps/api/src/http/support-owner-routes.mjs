@@ -2,6 +2,7 @@ import { readJsonBody, sendError, sendJson } from "./json.mjs";
 import { isValidTimeZone } from "../dashboard/dashboard-range.mjs";
 import { requireCaller } from "./require-caller.mjs";
 import { normalizePhone } from "../auth/contact-otp-store.mjs";
+import { revokeAllSessionsForUser } from "../auth/sessions.mjs";
 import {
   clearUserPhone,
   findUserById,
@@ -466,6 +467,7 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
 
     if (typeof body?.email === "string" && body.email.trim()) {
       await setUserEmail(userId, body.email);
+      await revokeAllSessionsForUser(userId);
     }
 
     if (nextPhone === null) {
@@ -475,7 +477,9 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
     }
 
     if (nextPassword) {
-      await updateUserPassword(userId, nextPassword);
+      // Staff know this password: the member must replace it, and old sessions end (H9).
+      await updateUserPassword(userId, nextPassword, { mustChange: true });
+      await revokeAllSessionsForUser(userId);
     }
   } catch (err) {
     const code = err && err.code ? String(err.code) : "invalid_request";

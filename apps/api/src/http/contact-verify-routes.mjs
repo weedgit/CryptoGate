@@ -15,6 +15,7 @@ import {
   revokeContactOtp,
 } from "../auth/contact-otp-store.mjs";
 import { sessionFromUserWithSetup } from "../auth/session-payload.mjs";
+import { revokeOtherSessionsForUser } from "../auth/sessions.mjs";
 import { sendEmailChangeNotice, sendEmailOtp } from "../mail/auth-mail.mjs";
 import {
   checkPhoneVerification,
@@ -235,6 +236,8 @@ export async function handleVerifyEmailOtp(req, res) {
     }
     await markEmailVerified(caller.userId);
     if (swapped && previousEmail) {
+      // The sign-in email changed: other sessions must sign in again (H9).
+      await revokeOtherSessionsForUser(caller.userId, caller.token);
       await notifyOldEmail(previousEmail, "completed", destination);
     }
     await insertAuditEvent({
