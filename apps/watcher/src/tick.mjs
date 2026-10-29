@@ -89,9 +89,22 @@ async function ingestScope(pool, filter, opts = {}) {
     (o) => o.status === "pending_payment",
   ).length;
 
+  // Oldest order per address: where a chain client starts scanning an address it has no cursor
+  // for (fresh process, outage), so transfers since the order are never skipped (H5).
+  /** @type {Record<string, number>} */
+  const addressSinceMs = {};
+  for (const o of matchCandidates) {
+    const address = String(o.receiveAddress ?? "").trim();
+    const created = Date.parse(String(o.createdAt ?? ""));
+    if (!address || !Number.isFinite(created)) continue;
+    addressSinceMs[address] = Math.min(addressSinceMs[address] ?? created, created);
+  }
+
   const polled = await chain.listRecentTransfers({
     ...filter,
     watchedAddresses,
+    allWatchedAddresses: Object.keys(addressSinceMs),
+    addressSinceMs,
   });
 
   const hinted = drainTransferHints({

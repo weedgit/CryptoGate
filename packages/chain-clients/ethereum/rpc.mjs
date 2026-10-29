@@ -180,13 +180,64 @@ export const ERC20_RESCAN_BLOCKS = 12;
 export const ERC20_ADDRESS_CHUNK = 50;
 /** Full blocks fetched per cycle for native ETH; a backlog is caught up over later cycles. */
 export const DEFAULT_NATIVE_MAX_BLOCKS_PER_TICK = 5;
+/** Blocks per eth_getLogs call while an address catches up (providers cap ranges ~2k–10k). */
+export const ERC20_MAX_SPAN_BLOCKS = 2000;
+/** Oldest block any catch-up reaches back to (~7 days of 12 s slots, the late-payment window). */
+export const MAX_CATCHUP_BLOCKS = 50_400;
+const ETH_SLOT_MS = 12_000;
+const ADDRESS_CURSOR_MAX = 20_000;
 
-/** Last block fully scanned, per RPC + network + asset. In-memory: a restart re-scans blockLookback. */
+/** Native ETH: last block fully scanned, per RPC + network + asset. */
 const scanCursors = new Map();
+/**
+ * ERC-20: last block scanned per watched address. The watcher polls a rotating subset of
+ * addresses, so one shared cursor would skip blocks for addresses deferred by the rotation (H5).
+ */
+const addressCursors = new Map();
 
 export function resetEthScanCursors() {
   scanCursors.clear();
+  addressCursors.clear();
   blockTimestampCache.clear();
+}
+
+/**
+ * Earliest block that can hold a transfer made at or after `sinceMs`. Missed slots mean fewer
+ * blocks than elapsed slots, so this errs earlier (safe); capped at MAX_CATCHUP_BLOCKS.
+ * @param {number} latest
+ * @param {number} sinceMs
+ * @param {number} nowMs
+ */
+export function blockAtOrBefore(latest, sinceMs, nowMs) {
+  const back = Math.ceil(Math.max(0, nowMs - sinceMs) / ETH_SLOT_MS) + ERC20_RESCAN_BLOCKS;
+  return Math.max(0, latest - Math.min(back, MAX_CATCHUP_BLOCKS));
+}
+
+/**
+ * Where a never-scanned address (or the native block scan) starts: the oldest open order's
+ * creation when the watcher passes it, else the configured lookback. Restarts and RPC outages
+ * therefore resume from the orders, not from `latest - lookback`.
+ * @param {number} latest
+ * @param {number | undefined} sinceMs
+ * @param {{ blockLookback: number }} cfg
+ * @param {number} nowMs
+ */
+function firstScanBlock(latest, sinceMs, cfg, nowMs) {
+  if (Number.isFinite(sinceMs)) return blockAtOrBefore(latest, Number(sinceMs), nowMs);
+  return Math.max(0, latest - cfg.blockLookback);
+}
+
+/**
+ * @param {Record<string, number> | undefined} addressSinceMs
+ * @param {string[]} addresses
+ */
+function oldestSinceMs(addressSinceMs, addresses) {
+  let oldest;
+  for (const a of addresses) {
+    const ms = Number(addressSinceMs?.[a]);
+    if (Number.isFinite(ms) && (oldest === undefined || ms < oldest)) oldest = ms;
+  }
+  return oldest;
 }
 
 /**
@@ -198,15 +249,17 @@ function cursorKey(cfg, kind) {
 }
 
 /**
- * Block range for this cycle: new blocks since the cursor plus `overlap` recent
- * blocks, never older than `lookback`, at most `maxSpan` blocks.
+ * Block range for this cycle: from the cursor (re-reading `overlap` recent blocks), or
+ * `startIfNew` before the first scan; never older than `floor`, at most `maxSpan` blocks.
  * @param {number | undefined} cursor
  * @param {number} latest
- * @param {{ lookback: number, overlap: number, maxSpan: number }} opts
+ * @param {{ floor: number, startIfNew: number, overlap: number, maxSpan: number }} opts
  */
 export function scanRange(cursor, latest, opts) {
-  const floor = Math.max(0, latest - opts.lookback);
-  const start = Math.max(floor, cursor == null ? floor : cursor + 1 - opts.overlap);
+  const start = Math.max(
+    opts.floor,
+    cursor == null ? opts.startIfNew : cursor + 1 - opts.overlap,
+  );
   const end = Math.min(latest, start + Math.max(1, opts.maxSpan) - 1);
   return { fromBlock: start, toBlock: end };
 }
@@ -230,6 +283,8 @@ async function latestBlock(cfg, input) {
 /**
  * @param {{
  *   watchedAddresses: string[],
+ *   addressSinceMs?: Record<string, number>,
+ *   nowMs?: number,
  *   fetchImpl?: typeof fetch,
  *   sleepImpl?: (ms: number) => Promise<void>,
  *   runtimeConfig?: ReturnType<typeof getEthereumRuntimeConfig>,
@@ -250,17 +305,44 @@ export async function fetchErc20TransfersForAddresses(input) {
 
   const latest = await latestBlock(cfg, input);
   const key = cursorKey(cfg, "erc20");
-  const { fromBlock, toBlock } = scanRange(scanCursors.get(key), latest, {
-    lookback: cfg.blockLookback,
-    overlap: ERC20_RESCAN_BLOCKS,
-    maxSpan: cfg.blockLookback + 1,
-  });
-  const toTopics = [...new Set(watched.map(padAddressTopic).filter(Boolean))];
+  const nowMs = input.nowMs ?? Date.now();
+  const floor = Math.max(0, latest - MAX_CATCHUP_BLOCKS);
+  /** @type {Map<string, { topic: string, cursorKey: string, from: number }>} */
+  const byTopic = new Map();
+  for (const address of watched) {
+    const topic = padAddressTopic(address);
+    if (!topic || byTopic.has(topic)) continue;
+    const addressKey = `${key}|${topic}`;
+    const { fromBlock } = scanRange(addressCursors.get(addressKey), latest, {
+      floor,
+      startIfNew: firstScanBlock(latest, input.addressSinceMs?.[address], cfg, nowMs),
+      overlap: ERC20_RESCAN_BLOCKS,
+      maxSpan: ERC20_MAX_SPAN_BLOCKS,
+    });
+    byTopic.set(topic, { topic, cursorKey: addressKey, from: fromBlock });
+  }
+  // Up-to-date addresses share calls; ones still catching up are chunked separately (oldest
+  // first) so they never hold back detection on fresh orders.
+  const current = [];
+  const behind = [];
+  for (const entry of byTopic.values()) {
+    (latest - entry.from + 1 > ERC20_MAX_SPAN_BLOCKS ? behind : current).push(entry);
+  }
+  behind.sort((a, b) => a.from - b.from);
+  const chunks = [];
+  for (const group of [current, behind]) {
+    for (let i = 0; i < group.length; i += ERC20_ADDRESS_CHUNK) {
+      chunks.push(group.slice(i, i + ERC20_ADDRESS_CHUNK));
+    }
+  }
   /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string, memoOrTag?: string }>} */
   const transfers = [];
 
-  for (let i = 0; i < toTopics.length; i += ERC20_ADDRESS_CHUNK) {
-    const chunk = toTopics.slice(i, i + ERC20_ADDRESS_CHUNK);
+  for (const entries of chunks) {
+    const fromBlock = Math.min(...entries.map((e) => e.from));
+    const toBlock = Math.min(latest, fromBlock + ERC20_MAX_SPAN_BLOCKS - 1);
+    if (fromBlock > toBlock) continue;
+    const chunk = entries.map((e) => e.topic);
     const logs = await withEthRetry(
       () =>
         jsonRpcCall(
@@ -295,8 +377,15 @@ export async function fetchErc20TransfersForAddresses(input) {
       );
       transfers.push(mapped);
     }
+    for (const entry of entries) {
+      const prev = addressCursors.get(entry.cursorKey);
+      addressCursors.delete(entry.cursorKey);
+      addressCursors.set(entry.cursorKey, Math.max(prev ?? -1, toBlock));
+    }
+    while (addressCursors.size > ADDRESS_CURSOR_MAX) {
+      addressCursors.delete(addressCursors.keys().next().value);
+    }
   }
-  scanCursors.set(key, toBlock);
 
   return {
     transfers,
@@ -306,9 +395,14 @@ export async function fetchErc20TransfersForAddresses(input) {
 }
 
 /**
- * Scan new blocks for native ETH transfers to watched addresses.
+ * Scan new blocks for native ETH transfers to watched addresses. A block scan sees every
+ * address at once, so it matches all open-order addresses (`allWatchedAddresses`), not only
+ * the rotation subset polled this tick (H5).
  * @param {{
  *   watchedAddresses: string[],
+ *   allWatchedAddresses?: string[],
+ *   addressSinceMs?: Record<string, number>,
+ *   nowMs?: number,
  *   fetchImpl?: typeof fetch,
  *   sleepImpl?: (ms: number) => Promise<void>,
  *   runtimeConfig?: ReturnType<typeof getEthereumRuntimeConfig>,
@@ -322,9 +416,8 @@ export async function fetchNativeEthTransfersForAddresses(input) {
     return { transfers: [], mode: "stub", watchedAddressCount: 0 };
   }
 
-  const watchedSet = new Set(
-    input.watchedAddresses.map((a) => a.trim().toLowerCase()).filter(Boolean),
-  );
+  const addresses = [...(input.watchedAddresses ?? []), ...(input.allWatchedAddresses ?? [])];
+  const watchedSet = new Set(addresses.map((a) => a.trim().toLowerCase()).filter(Boolean));
   if (watchedSet.size === 0) {
     return { transfers: [], mode: pollMode, watchedAddressCount: 0 };
   }
@@ -332,7 +425,13 @@ export async function fetchNativeEthTransfersForAddresses(input) {
   const latest = await latestBlock(cfg, input);
   const key = cursorKey(cfg, "native");
   const { fromBlock, toBlock } = scanRange(scanCursors.get(key), latest, {
-    lookback: cfg.blockLookback,
+    floor: Math.max(0, latest - MAX_CATCHUP_BLOCKS),
+    startIfNew: firstScanBlock(
+      latest,
+      oldestSinceMs(input.addressSinceMs, addresses),
+      cfg,
+      input.nowMs ?? Date.now(),
+    ),
     overlap: 1,
     maxSpan: cfg.nativeMaxBlocksPerTick ?? DEFAULT_NATIVE_MAX_BLOCKS_PER_TICK,
   });

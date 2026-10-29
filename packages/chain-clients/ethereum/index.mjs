@@ -106,6 +106,8 @@ export async function listRecentTransfers(options = {}) {
     const live = cfg.nativeAsset
       ? await fetchNativeEthTransfersForAddresses({
           watchedAddresses: watched,
+          allWatchedAddresses: options.allWatchedAddresses,
+          addressSinceMs: options.addressSinceMs,
           fetchImpl: options.fetch,
           sleepImpl: options.sleep,
           runtimeConfig: cfg,
@@ -113,6 +115,7 @@ export async function listRecentTransfers(options = {}) {
         })
       : await fetchErc20TransfersForAddresses({
           watchedAddresses: watched,
+          addressSinceMs: options.addressSinceMs,
           fetchImpl: options.fetch,
           sleepImpl: options.sleep,
           runtimeConfig: cfg,
