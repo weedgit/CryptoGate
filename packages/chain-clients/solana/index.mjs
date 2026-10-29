@@ -46,7 +46,11 @@ export async function listRecentTransfers(options = {}) {
           ? list
           : list.filter((t) => watched.includes(String(t.toAddress ?? "").trim()));
       return {
-        transfers: dedupeTransfersByTxHash(filtered),
+        // Dev stub: undated rows count as "just now" so they stay eligible for open orders.
+        transfers: dedupeTransfersByTxHash(filtered).map((t) => ({
+          blockTimestampMs: Date.now(),
+          ...t,
+        })),
         mode: "stub-env",
         watchedAddressCount: watched.length,
       };

@@ -272,6 +272,7 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
         continue;
       }
 
+      const blockTimestamp = Number(row.block_timestamp);
       mappedRows.push({
         toAddress,
         fromAddress,
@@ -280,6 +281,8 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
         asset: cfg.asset,
         network: cfg.network,
         memoOrTag: undefined,
+        blockTimestampMs:
+          Number.isFinite(blockTimestamp) && blockTimestamp > 0 ? blockTimestamp : undefined,
       });
     }
     return mappedRows;

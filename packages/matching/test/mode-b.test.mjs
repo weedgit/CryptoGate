@@ -332,3 +332,22 @@ describe("@paymentgate/matching EVM address case (H1)", () => {
   });
 });
 
+describe("@paymentgate/matching transfer time (H3)", () => {
+  it("an undated transfer cannot bind to a dated order", async () => {
+    const result = await matchTransaction({
+      ...baseTx,
+      candidates: [{ ...baseCandidate, createdAt: "2026-09-02T09:12:58.868Z" }],
+    });
+    assert.notEqual(result.status, "verifying");
+  });
+
+  it("a transfer mined before the order cannot bind to it", async () => {
+    const createdAt = "2026-09-02T09:12:58.868Z";
+    const result = await matchTransaction({
+      ...baseTx,
+      transferAtMs: Date.parse(createdAt) - 60_000,
+      candidates: [{ ...baseCandidate, createdAt }],
+    });
+    assert.notEqual(result.status, "verifying");
+  });
+});

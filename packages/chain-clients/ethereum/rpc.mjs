@@ -129,6 +129,51 @@ function toHexBlock(n) {
   return `0x${n.toString(16)}`;
 }
 
+/** Block number → timestamp (ms); blocks are immutable once read, reorgs re-read via the overlap. */
+const blockTimestampCache = new Map();
+const BLOCK_TIMESTAMP_CACHE_MAX = 2048;
+
+/**
+ * @param {unknown} hexSeconds
+ * @returns {number | undefined}
+ */
+function hexSecondsToMs(hexSeconds) {
+  const seconds = Number.parseInt(String(hexSeconds ?? ""), 16);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
+}
+
+/**
+ * Block time for transfer eligibility (a transfer older than the order must not bind to it).
+ * Uses `blockTimestamp` on the log when the node returns it, else one eth_getBlockByNumber.
+ * @param {Record<string, unknown>} log
+ * @param {{ rpcUrl: string, apiKey?: string }} cfg
+ * @param {{ fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
+ */
+async function logBlockTimestampMs(log, cfg, input) {
+  const fromLog = hexSecondsToMs(log.blockTimestamp);
+  if (fromLog !== undefined) return fromLog;
+  const blockHex = String(log.blockNumber ?? "");
+  if (!/^0x[0-9a-f]+$/i.test(blockHex)) return undefined;
+  const cacheKey = `${cfg.rpcUrl}|${blockHex.toLowerCase()}`;
+  if (blockTimestampCache.has(cacheKey)) return blockTimestampCache.get(cacheKey);
+  const block = await withEthRetry(
+    () =>
+      jsonRpcCall(cfg.rpcUrl, "eth_getBlockByNumber", [blockHex, false], {
+        fetchImpl: input.fetchImpl,
+        apiKey: cfg.apiKey,
+      }),
+    { sleepImpl: input.sleepImpl },
+  );
+  const ms = hexSecondsToMs(block?.timestamp);
+  if (ms !== undefined) {
+    if (blockTimestampCache.size >= BLOCK_TIMESTAMP_CACHE_MAX) {
+      blockTimestampCache.delete(blockTimestampCache.keys().next().value);
+    }
+    blockTimestampCache.set(cacheKey, ms);
+  }
+  return ms;
+}
+
 /** Recent blocks re-read every cycle so a late-indexed or reorged transfer is still seen. */
 export const ERC20_RESCAN_BLOCKS = 12;
 /** Watched addresses per eth_getLogs call (topic OR-list). */
@@ -141,6 +186,7 @@ const scanCursors = new Map();
 
 export function resetEthScanCursors() {
   scanCursors.clear();
+  blockTimestampCache.clear();
 }
 
 /**
@@ -241,7 +287,13 @@ export async function fetchErc20TransfersForAddresses(input) {
         asset: cfg.asset,
         network: cfg.network,
       });
-      if (mapped) transfers.push(mapped);
+      if (!mapped) continue;
+      mapped.blockTimestampMs = await logBlockTimestampMs(
+        /** @type {Record<string, unknown>} */ (row),
+        { rpcUrl: cfg.rpcUrl, apiKey: cfg.apiKey },
+        input,
+      );
+      transfers.push(mapped);
     }
   }
   scanCursors.set(key, toBlock);
@@ -297,6 +349,7 @@ export async function fetchNativeEthTransfersForAddresses(input) {
       { sleepImpl: input.sleepImpl },
     );
     const txs = Array.isArray(block?.transactions) ? block.transactions : [];
+    const blockTimestampMs = hexSecondsToMs(block?.timestamp);
     for (const tx of txs) {
       const to = String(tx?.to ?? "").trim().toLowerCase();
       const valueHex = String(tx?.value ?? "0x0");
@@ -315,6 +368,7 @@ export async function fetchNativeEthTransfersForAddresses(input) {
         txHash,
         asset: cfg.asset,
         network: cfg.network,
+        blockTimestampMs,
       });
     }
     scanCursors.set(key, blockNum);

@@ -70,6 +70,7 @@ export function mapSplTransferFromTransaction(tx, cfg) {
     } catch {
       return null;
     }
+    const blockTime = Number(tx?.blockTime);
     return {
       toAddress: cfg.owner,
       amount,
@@ -77,6 +78,7 @@ export function mapSplTransferFromTransaction(tx, cfg) {
       asset: cfg.asset,
       network: cfg.network,
       memoOrTag: undefined,
+      blockTimestampMs: Number.isFinite(blockTime) && blockTime > 0 ? blockTime * 1000 : undefined,
     };
   }
   return null;

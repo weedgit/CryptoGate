@@ -182,9 +182,16 @@ describe("@paymentgate/chain-clients/ethereum JSON-RPC live (mocked)", () => {
                   toTopic,
                 ],
                 data: "0x000000000000000000000000000000000000000000000000000000000f4240",
+                blockNumber: "0xfe",
               },
             ],
           }),
+        );
+      }
+      if (body.method === "eth_getBlockByNumber") {
+        assert.equal(body.params[0], "0xfe");
+        return new Response(
+          JSON.stringify({ jsonrpc: "2.0", id: 1, result: { timestamp: "0x6553f100" } }),
         );
       }
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: null }));
@@ -198,6 +205,8 @@ describe("@paymentgate/chain-clients/ethereum JSON-RPC live (mocked)", () => {
     assert.equal(result.transfers.length, 1);
     assert.equal(result.transfers[0].amount, "1");
     assert.equal(result.transfers[0].txHash, "0xdeadbeef");
+    // H3: block time travels with the transfer so pre-order transfers cannot bind.
+    assert.equal(result.transfers[0].blockTimestampMs, 0x6553f100 * 1000);
   });
 
   it("getTransactionConfirmations uses receipt + head block", async () => {

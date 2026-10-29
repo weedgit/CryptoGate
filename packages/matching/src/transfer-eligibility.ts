@@ -8,21 +8,22 @@ export function parseCreatedAtMs(createdAt?: string): number | null {
 
 /**
  * Inbound tx may bind only when it occurred at or after order create.
- * Missing transfer or createdAt timestamps skip the check (stub / legacy paths).
+ * An undated transfer is ineligible for a dated order: it could predate it (review H3).
+ * Orders without createdAt (legacy rows) skip the check.
  */
 export function isTransferEligibleForOrder(
   transferAtMs: number | undefined,
   createdAt?: string,
 ): boolean {
+  const createdMs = parseCreatedAtMs(createdAt);
+  if (createdMs === null) return true;
   if (
     transferAtMs === undefined ||
     transferAtMs === null ||
     !Number.isFinite(transferAtMs)
   ) {
-    return true;
+    return false;
   }
-  const createdMs = parseCreatedAtMs(createdAt);
-  if (createdMs === null) return true;
   return transferAtMs >= createdMs;
 }
 
