@@ -615,6 +615,23 @@ export async function findActiveActivationBill(orgId) {
 }
 
 /**
+ * Oldest bill of this org still overdue, other than `excludeBillId`.
+ * @param {string} orgId
+ * @param {string} excludeBillId
+ * @returns {Promise<string | null>} bill id
+ */
+export async function findOtherOverdueBillId(orgId, excludeBillId) {
+  const { rows } = await getPool().query(
+    `SELECT id FROM service_bills
+     WHERE org_id = $1 AND id <> $2 AND status = 'overdue'
+     ORDER BY due_at ASC
+     LIMIT 1`,
+    [orgId, excludeBillId],
+  );
+  return rows[0]?.id ?? null;
+}
+
+/**
  * Billable USD volume of orders completed in [fromInclusive, toExclusive).
  * `payable_amount` is in token units (ETH, TRX…), so the USD invoice amount locked at quote
  * is summed, and an order counts in the period it was confirmed — later watcher touch-ups

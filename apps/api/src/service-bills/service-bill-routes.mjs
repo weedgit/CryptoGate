@@ -51,6 +51,7 @@ import {
   adjustServiceBill,
   adjustServiceBillLines,
   setServiceBillOpsNote,
+  findOtherOverdueBillId,
   sumCompletedPayableVolume,
 } from "./service-bill-store.mjs";
 import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
@@ -64,13 +65,32 @@ import { maybeCreateActivationForMerchantOrg } from "./activation.mjs";
 import { listUpcomingBills } from "./upcoming-bills.mjs";
 
 /**
+ * The bill that paused the merchant was paid, waived or cancelled. Resume only when no other
+ * bill is still overdue; otherwise the pause now points at that bill (review M23).
+ * @param {string} orgId
+ * @param {string} settledBillId
+ */
+async function resumeUnlessStillOverdue(orgId, settledBillId) {
+  const stillOverdue = await findOtherOverdueBillId(orgId, settledBillId);
+  if (stillOverdue) {
+    await updateOrgStatus(orgId, "paused", {
+      reason: "Unpaid service bill",
+      reasonBillId: stillOverdue,
+      byPlatform: true,
+    });
+    return;
+  }
+  await updateOrgStatus(orgId, "active");
+}
+
+/**
  * Waived / cancelled bill that paused the merchant: resume the org.
  * @param {object} row bill before the update
  */
 async function resumeOrgPausedByBill(row) {
   const org = await findOrgById(row.org_id);
   if (org?.status === "paused" && String(org.status_reason_bill_id ?? "") === row.id) {
-    await updateOrgStatus(row.org_id, "active");
+    await resumeUnlessStillOverdue(row.org_id, row.id);
   }
 }
 
@@ -762,7 +782,7 @@ export async function handleUpdateServiceBill(req, res, billId) {
         (String(org.status_reason_bill_id ?? "") === billId ||
           org.status_reason === "Unpaid service bill")
       ) {
-        await updateOrgStatus(row.org_id, "active");
+        await resumeUnlessStillOverdue(row.org_id, billId);
       }
       emitDashboardLive({
         type: "service_bill.paid",
