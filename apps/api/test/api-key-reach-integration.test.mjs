@@ -116,6 +116,23 @@ describePg("API key reach (H6 / H7)", () => {
     assert.equal(res.json.code, "insufficient_scope");
   });
 
+  it("a signed mutation authenticates once, and its nonce stays single-use (H6)", async () => {
+    const request = signedRequest("POST", "/v1/orders", {
+      orgId: seed.merchantOrgId,
+      asset: "USDT",
+      network: "tron",
+      amountUsd: "10.00",
+      validitySeconds: 1800,
+    });
+    request.init.headers["Idempotency-Key"] = `h6-${Date.now()}`;
+    const first = await send(request);
+    assert.notEqual(first.status, 401, JSON.stringify(first.json));
+    assert.notEqual(first.json?.code, "nonce_replay");
+    const replay = await send(request);
+    assert.equal(replay.status, 401);
+    assert.equal(replay.json.code, "nonce_replay");
+  });
+
   it("reads orders", async () => {
     const res = await send(signedRequest("GET", `/v1/orders?orgId=${seed.merchantOrgId}`));
     assert.equal(res.status, 200, JSON.stringify(res.json));

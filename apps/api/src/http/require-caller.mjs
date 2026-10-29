@@ -46,6 +46,13 @@ function isPasswordChangePendingAllowed(req) {
 }
 
 /**
+ * Resolved caller per request. A signed API-key request's nonce is single-use, so the contact
+ * gate and the route handler must share one authentication instead of each verifying (H6).
+ * @type {WeakMap<import("node:http").IncomingMessage, object>}
+ */
+const callerByRequest = new WeakMap();
+
+/**
  * Session cookie or signed X-Api-Key. Guest /payment and login skip this.
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
@@ -58,6 +65,18 @@ function isPasswordChangePendingAllowed(req) {
  * } | null>}
  */
 export async function requireCaller(req, res) {
+  const known = callerByRequest.get(req);
+  if (known) return known;
+  const caller = await resolveCaller(req, res);
+  if (caller) callerByRequest.set(req, caller);
+  return caller;
+}
+
+/**
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+async function resolveCaller(req, res) {
   if (apiKeyHeader(req.headers)) {
     const auth = await authenticateApiKeyRequest(req);
     if (!auth.ok) {
