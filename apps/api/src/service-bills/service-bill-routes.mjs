@@ -664,6 +664,11 @@ export async function handleUpdateServiceBill(req, res, billId) {
     if (updated && validated.opsNote !== undefined) {
       updated = (await setServiceBillOpsNote(billId, validated.opsNote)) ?? updated;
     }
+    // Credit spent on a cancelled bill goes back to the merchant (review M22).
+    const creditToRestore = String(row.credit_applied_usd ?? "").trim();
+    if (updated && creditToRestore && Number(creditToRestore) > 0) {
+      await addMerchantServiceBillCredit(row.org_id, creditToRestore);
+    }
     if (updated) {
       await insertAuditEvent({
         actorUserId: caller.userId,
@@ -774,6 +779,12 @@ export async function handleUpdateServiceBill(req, res, billId) {
       let nextTotal;
       try {
         nextTotal = addUsdAmounts(subscriptionAmount, volumeFeeAmount);
+        // Keep the merchant credit already applied to this bill (review M22).
+        const credit = String(row.credit_applied_usd ?? "").trim();
+        if (credit && Number(credit) > 0) {
+          const discounted = applyUsdAdjustment(nextTotal, `-${credit}`);
+          nextTotal = discounted.startsWith("-") ? "0.00" : discounted;
+        }
       } catch {
         sendError(res, 400, "invalid_request", "Invalid line amounts");
         return;
