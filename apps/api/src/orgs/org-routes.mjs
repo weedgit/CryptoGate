@@ -521,6 +521,17 @@ export async function handleDeleteOrg(req, res, orgId) {
         sendError(res, 404, "not_found", "Org not found");
         return;
       }
+      // Orders and service bills are financial records (unpaid bills, payout history): an
+      // agent wiping a merchant together with them needs the Platform Owner (review M16).
+      if ((summary.orderCount > 0 || summary.billCount > 0) && !caller.platformOwner) {
+        sendError(
+          res,
+          403,
+          "has_financial_records",
+          "This account has payment orders or service bills. Only the Platform Owner can delete it with its records; pause it instead.",
+        );
+        return;
+      }
       const { deletedOrgIds, deletedUsers = [] } = await deleteOrgCascade(orgId);
       if (deletedOrgIds.length === 0) {
         sendError(res, 404, "not_found", "Org not found");
@@ -529,7 +540,8 @@ export async function handleDeleteOrg(req, res, orgId) {
       try {
         await insertAuditEvent({
           actorUserId: caller.userId,
-          orgId: null,
+          // The deleted org is gone; file the event under its parent so it stays visible there.
+          orgId: row.parent_id ?? null,
           action: AUDIT_ACTIONS.orgDelete,
           metadata: {
             deletedOrgId: orgId,

@@ -99,3 +99,52 @@ describePg("suspensions the platform imposed (M15)", () => {
     assert.equal(res.json.status, "active");
   });
 });
+
+describePg("cascade delete with financial records (M16)", () => {
+  it("an agent cannot wipe a merchant that has orders", async () => {
+    const { server, base } = await startTestServer();
+    try {
+      const platform = await findPlatformOrg();
+      const agent = (
+        await insertOrgAccount({ type: "agent", name: `m16-agent-${Date.now()}`, parentId: platform.id })
+      ).row;
+      await getPool().query(
+        `UPDATE org_accounts SET billing_email = 'b@m16.local', country = 'US' WHERE id = $1`,
+        [agent.id],
+      );
+      const merchant = (
+        await insertOrgAccount({ type: "merchant", name: `m16-merchant-${Date.now()}`, parentId: agent.id })
+      ).row;
+      const owner = await createUser({
+        email: `m16-${Date.now()}@paymentgate.local`,
+        password: "M16AgentPass12345!",
+      });
+      await insertMembership({ orgId: agent.id, userId: owner.id, role: "owner" });
+      await getPool().query(`UPDATE users SET first_name = 'A', last_name = 'B' WHERE id = $1`, [owner.id]);
+      await getPool().query(
+        `INSERT INTO agent_payout_addresses (org_id, asset, network, address)
+         VALUES ($1, 'USDT', 'tron', 'TAgentPayoutAddressExample00000001')`,
+        [agent.id],
+      );
+      await getPool().query(
+        `INSERT INTO payment_orders (
+           org_id, created_by, order_number, status, matching_mode, payable_amount,
+           receive_address, address_source, asset, network, expires_at,
+           required_confirmations, idempotency_key, idempotency_body_hash, invoice_amount_usd)
+         VALUES ($1, $2, $3, 'completed', 'B', '10', 'TMain16', 'main', 'USDT', 'tron',
+                 now(), 19, $3, 'h', '10')`,
+        [merchant.id, owner.id, `M16-${Date.now()}`],
+      );
+      const token = (await createSession({ userId: owner.id, mfaVerified: true })).token;
+      const res = await apiFetch(base, `/v1/orgs/${merchant.id}?cascade=1`, {
+        method: "DELETE",
+        token,
+      });
+      assert.equal(res.status, 403, JSON.stringify(res.json));
+      assert.equal(res.json.code, "has_financial_records");
+    } finally {
+      await stopTestServer(server);
+    }
+  });
+});
+
