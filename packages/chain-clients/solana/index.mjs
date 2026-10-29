@@ -70,6 +70,7 @@ export async function listRecentTransfers(options = {}) {
   try {
     const live = await fetchSplTransfersForAddresses({
       watchedAddresses: watched,
+      addressSinceMs: options.addressSinceMs,
       fetchImpl: options.fetch,
       runtimeConfig: cfg,
       pollMode: "solana-rpc",

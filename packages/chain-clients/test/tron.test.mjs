@@ -646,3 +646,51 @@ describe("@paymentgate/chain-clients/tron native TRX ingest (H3 / H4)", () => {
     assert.equal(result.transfers[0].blockTimestampMs, 1_760_000_000_000);
   });
 });
+
+describe("@paymentgate/chain-clients/tron pagination (M4)", () => {
+  it("follows fingerprints from the oldest open order", async () => {
+    const { fetchTrc20TransfersForAddresses } = await import("../tron/trongrid.mjs");
+    const urls = [];
+    const row = (id) => ({
+      transaction_id: id,
+      type: "Transfer",
+      to: PAYEE,
+      from: "TPayer",
+      value: "1000000",
+      token_info: { address: USDT_TRC20_CONTRACT, decimals: 6 },
+    });
+    const fetchImpl = async (url) => {
+      urls.push(String(url));
+      const second = String(url).includes("fingerprint=");
+      return {
+        ok: true,
+        async json() {
+          return second
+            ? { data: [row("p2")] }
+            : { data: [row("p1a"), row("p1b")], meta: { fingerprint: "fp1" } };
+        },
+      };
+    };
+    const sinceMs = Date.parse("2026-10-20T00:00:00Z");
+    const result = await fetchTrc20TransfersForAddresses({
+      watchedAddresses: [PAYEE],
+      addressSinceMs: { [PAYEE]: sinceMs },
+      limit: 2,
+      fetchImpl: /** @type {typeof fetch} */ (fetchImpl),
+      runtimeConfig: {
+        configured: true,
+        nativeAsset: false,
+        baseUrl: "https://api.trongrid.io",
+        apiKey: "",
+        contractAddress: USDT_TRC20_CONTRACT,
+        decimals: 6,
+        asset: "USDT",
+        network: "tron",
+      },
+    });
+    assert.deepEqual(result.transfers.map((t) => t.txHash), ["p1a", "p1b", "p2"]);
+    assert.equal(urls.length, 2);
+    assert.match(urls[0], new RegExp(`min_timestamp=${sinceMs - 5 * 60 * 1000}`));
+    assert.match(urls[1], /fingerprint=fp1/);
+  });
+});

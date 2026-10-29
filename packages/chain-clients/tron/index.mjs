@@ -121,12 +121,14 @@ export async function listRecentTransfers(options = {}) {
     const live = cfg.nativeAsset
       ? await fetchNativeTrxTransfersForAddresses({
           watchedAddresses: watched,
+          addressSinceMs: options.addressSinceMs,
           fetchImpl: options.fetch,
           sleepImpl: options.sleep,
           runtimeConfig: cfg,
         })
       : await fetchTrc20TransfersForAddresses({
           watchedAddresses: watched,
+          addressSinceMs: options.addressSinceMs,
           fetchImpl: options.fetch,
           sleepImpl: options.sleep,
           runtimeConfig: cfg,

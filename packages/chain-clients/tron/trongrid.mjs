@@ -82,6 +82,46 @@ export async function withTronRetry(fn, opts = {}) {
   throw lastErr;
 }
 
+/** Pages followed per address per poll (TronGrid `meta.fingerprint`). */
+export const TRON_MAX_PAGES = 5;
+/** Re-read this much before the oldest order so clock skew never hides a transfer. */
+const TRON_SINCE_MARGIN_MS = 5 * 60 * 1000;
+
+/**
+ * All rows for one account listing: from the oldest open order at the address (when known)
+ * and across pages, not just the newest `limit` rows — a busy or dust-spammed address pushed
+ * payments out of a single page for good (review M4).
+ * @param {string} path listing path with its query string
+ * @param {number} limit
+ * @param {number | undefined} sinceMs
+ * @param {{ baseUrl: string, apiKey: string }} cfg
+ * @param {{ fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
+ */
+async function fetchTronListing(path, limit, sinceMs, cfg, input) {
+  const since = Number.isFinite(sinceMs)
+    ? `&min_timestamp=${Math.max(0, Math.floor(Number(sinceMs) - TRON_SINCE_MARGIN_MS))}`
+    : "";
+  const rows = [];
+  let fingerprint = "";
+  for (let page = 0; page < TRON_MAX_PAGES; page += 1) {
+    const pagePath =
+      path + since + (fingerprint ? `&fingerprint=${encodeURIComponent(fingerprint)}` : "");
+    const json = await withTronRetry(
+      () =>
+        trongridFetch(cfg.baseUrl, pagePath, {
+          apiKey: cfg.apiKey,
+          fetchImpl: input.fetchImpl,
+        }),
+      { sleepImpl: input.sleepImpl },
+    );
+    const data = Array.isArray(json?.data) ? json.data : [];
+    rows.push(...data);
+    fingerprint = String(json?.meta?.fingerprint ?? "");
+    if (!fingerprint || data.length < limit) break;
+  }
+  return rows;
+}
+
 /**
  * Map one TronGrid TRC-20 row → watcher transfer shape.
  * @param {Record<string, unknown>} row
@@ -161,16 +201,9 @@ export async function fetchTrc20TransfersForAddresses(input) {
       (cfg.contractAddress
         ? `&contract_address=${encodeURIComponent(cfg.contractAddress)}`
         : "");
-    let json;
+    let rows;
     try {
-      json = await withTronRetry(
-        () =>
-          trongridFetch(cfg.baseUrl, path, {
-            apiKey: cfg.apiKey,
-            fetchImpl: input.fetchImpl,
-          }),
-        { sleepImpl: input.sleepImpl },
-      );
+      rows = await fetchTronListing(path, limit, input.addressSinceMs?.[address], cfg, input);
     } catch (err) {
       // One bad address must not fail the whole network tick (seed / checksum rejects).
       if (isInvalidTronAddressHttpError(err)) {
@@ -179,7 +212,6 @@ export async function fetchTrc20TransfersForAddresses(input) {
       }
       throw err;
     }
-    const rows = Array.isArray(json?.data) ? json.data : [];
     const mappedRows = [];
     for (const row of rows) {
       const mapped = mapTrc20Row(/** @type {Record<string, unknown>} */ (row), {
@@ -228,16 +260,9 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
     async (address) => {
     const path =
       `/v1/accounts/${encodeURIComponent(address)}/transactions?only_to=true&limit=${limit}`;
-    let json;
+    let rows;
     try {
-      json = await withTronRetry(
-        () =>
-          trongridFetch(cfg.baseUrl, path, {
-            apiKey: cfg.apiKey,
-            fetchImpl: input.fetchImpl,
-          }),
-        { sleepImpl: input.sleepImpl },
-      );
+      rows = await fetchTronListing(path, limit, input.addressSinceMs?.[address], cfg, input);
     } catch (err) {
       if (isInvalidTronAddressHttpError(err)) {
         skippedInvalidRemote += 1;
@@ -245,7 +270,6 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
       }
       throw err;
     }
-    const rows = Array.isArray(json?.data) ? json.data : [];
     const mappedRows = [];
     for (const row of rows) {
       const raw = /** @type {Record<string, unknown>} */ (row.raw_data ?? {});

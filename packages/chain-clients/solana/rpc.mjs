@@ -85,9 +85,54 @@ export function mapSplTransferFromTransaction(tx, cfg) {
   return null;
 }
 
+/** Signature pages read per token account per poll. */
+export const SOLANA_MAX_SIGNATURE_PAGES = 3;
+const DECODED_CACHE_MAX = 10_000;
+/**
+ * signature|owner → decoded transfer (or null). A confirmed transaction never changes, so
+ * each signature is fetched once instead of on every tick (review M4 / M9).
+ * @type {Map<string, object | null>}
+ */
+const decodedBySignature = new Map();
+
+export function resetSolanaSignatureCache() {
+  decodedBySignature.clear();
+}
+
+/**
+ * Signatures for one account back to `sinceMs` (oldest open order), paging with `before`
+ * instead of reading only the newest `limit` (review M4).
+ * @param {string} account
+ * @param {number | undefined} sinceMs
+ * @param {ReturnType<typeof getSolanaRuntimeConfig>} cfg
+ * @param {{ fetchImpl?: typeof fetch }} input
+ */
+async function signaturesSince(account, sinceMs, cfg, input) {
+  const sinceSec = Number.isFinite(sinceMs) ? Math.floor(Number(sinceMs) / 1000) - 300 : null;
+  const out = [];
+  let before;
+  for (let page = 0; page < SOLANA_MAX_SIGNATURE_PAGES; page += 1) {
+    const sigs = await solanaRpcCall(
+      cfg.rpcUrl,
+      "getSignaturesForAddress",
+      [account, { limit: cfg.signatureLimit, ...(before ? { before } : {}) }],
+      { fetchImpl: input.fetchImpl, apiKey: cfg.apiKey },
+    );
+    const rows = Array.isArray(sigs) ? sigs : [];
+    out.push(...rows);
+    const last = rows[rows.length - 1];
+    if (rows.length < cfg.signatureLimit || !last?.signature) break;
+    if (sinceSec === null) break;
+    if (Number.isFinite(last.blockTime) && last.blockTime < sinceSec) break;
+    before = last.signature;
+  }
+  return out;
+}
+
 /**
  * @param {{
  *   watchedAddresses: string[],
+ *   addressSinceMs?: Record<string, number>,
  *   fetchImpl?: typeof fetch,
  *   runtimeConfig?: ReturnType<typeof getSolanaRuntimeConfig>,
  *   pollMode?: string,
@@ -120,16 +165,18 @@ export async function fetchSplTransfersForAddresses(input) {
     if (accounts.length === 0) accounts.push(owner);
 
     for (const account of accounts) {
-      const sigs = await solanaRpcCall(
-        cfg.rpcUrl,
-        "getSignaturesForAddress",
-        [account, { limit: cfg.signatureLimit }],
-        { fetchImpl: input.fetchImpl, apiKey: cfg.apiKey },
-      );
-      const rows = Array.isArray(sigs) ? sigs : [];
+      const rows = await signaturesSince(account, input.addressSinceMs?.[owner], cfg, input);
       for (const row of rows) {
         const signature = String(row?.signature ?? "").trim();
         if (!signature) continue;
+        // Failed transactions never credit (H4); skip them without a getTransaction call.
+        if (row?.err) continue;
+        const cacheKey = `${signature}|${owner}|${cfg.mintAddress}`;
+        if (decodedBySignature.has(cacheKey)) {
+          const cached = decodedBySignature.get(cacheKey);
+          if (cached) transfers.push(cached);
+          continue;
+        }
         const tx = await solanaRpcCall(
           cfg.rpcUrl,
           "getTransaction",
@@ -146,6 +193,13 @@ export async function fetchSplTransfersForAddresses(input) {
             network: cfg.network,
           },
         );
+        // Only finalized/confirmed transactions are returned, so the decode is stable.
+        if (tx) {
+          decodedBySignature.set(cacheKey, mapped);
+          if (decodedBySignature.size > DECODED_CACHE_MAX) {
+            decodedBySignature.delete(decodedBySignature.keys().next().value);
+          }
+        }
         if (mapped) transfers.push(mapped);
       }
     }
