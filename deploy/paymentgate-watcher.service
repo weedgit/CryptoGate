@@ -5,7 +5,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/root/PaymentGate
+# Unprivileged user over a root-owned code tree (review D2): code execution in the service
+# cannot rewrite served files, deploy scripts or root's cron jobs.
+# Install with deploy/install-opt-layout.sh.
+User=paymentgate
+Group=paymentgate
+WorkingDirectory=/opt/paymentgate
 EnvironmentFile=/etc/paymentgate/watcher.env
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/node apps/watcher/src/main.mjs --loop
@@ -23,8 +28,7 @@ LimitNOFILE=16384
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/root/PaymentGate
+ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
