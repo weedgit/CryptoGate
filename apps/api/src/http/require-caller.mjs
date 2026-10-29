@@ -6,6 +6,7 @@ import { isPlatformOperator } from "../orgs/membership-rules.mjs";
 import { requireSession } from "./require-session.mjs";
 import { authenticateApiKeyRequest } from "../signing/verify-api-key.mjs";
 import { signingRejectMessage } from "../signing/signing-rules.mjs";
+import { apiKeyScopeForRoute } from "../api-keys/api-key-rules.mjs";
 
 /**
  * @param {import("node:http").IncomingHttpHeaders} headers
@@ -67,6 +68,18 @@ export async function requireCaller(req, res) {
       sendError(res, 401, auth.code, signingRejectMessage());
       return null;
     }
+    const path = new URL(req.url ?? "/", "http://localhost").pathname;
+    const scope = apiKeyScopeForRoute(req.method ?? "GET", path);
+    if (!scope) {
+      sendError(
+        res,
+        403,
+        "api_key_route_forbidden",
+        "API keys can only call order and webhook endpoints",
+      );
+      return null;
+    }
+    if (!assertApiKeyScope({ apiKeyScopes: auth.key.scopes }, res, scope)) return null;
     const membership = await findMembership(auth.key.orgId, auth.key.userId);
     if (!membership) {
       sendError(res, 401, "signature_invalid", signingRejectMessage());

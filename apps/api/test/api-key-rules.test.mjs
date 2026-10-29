@@ -110,3 +110,30 @@ describe("api-key role scope", () => {
     assert.equal(r.orgId, "m1");
   });
 });
+
+describe("apiKeyScopeForRoute (H7)", () => {
+  it("allows order and webhook routes with their scope", async () => {
+    const { apiKeyScopeForRoute } = await import("../src/api-keys/api-key-rules.mjs");
+    assert.equal(apiKeyScopeForRoute("POST", "/v1/orders"), "orders");
+    assert.equal(apiKeyScopeForRoute("GET", "/v1/orders/abc"), "orders");
+    assert.equal(apiKeyScopeForRoute("POST", "/v1/orders/abc/cancel"), "orders");
+    assert.equal(apiKeyScopeForRoute("POST", "/v1/webhooks/test"), "webhooks");
+    assert.equal(apiKeyScopeForRoute("DELETE", "/v1/webhooks/w1"), "webhooks");
+  });
+
+  it("denies everything else", async () => {
+    const { apiKeyScopeForRoute } = await import("../src/api-keys/api-key-rules.mjs");
+    for (const [method, path] of [
+      ["GET", "/v1/audit"],
+      ["GET", "/v1/auth/session"],
+      ["POST", "/v1/auth/contact/email/send"],
+      ["POST", "/v1/api-keys"],
+      ["PATCH", "/v1/orgs/o1"],
+      ["PUT", "/v1/orgs/o1/settlement"],
+      ["DELETE", "/v1/orders/abc"],
+      ["GET", "/v1/orders/abc/extra/deep"],
+    ]) {
+      assert.equal(apiKeyScopeForRoute(method, path), null, `${method} ${path}`);
+    }
+  });
+});

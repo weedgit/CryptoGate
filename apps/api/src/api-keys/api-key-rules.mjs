@@ -339,3 +339,44 @@ export function toApiKey(row) {
 export function toApiKeyCreated(row, secret) {
   return { ...toApiKey(row), secret };
 }
+
+/**
+ * Routes a signed API key may call, and the scope each needs (H7). Everything else is
+ * portal-only: an integration key must not read the team, audit log or settlement, change
+ * contact details, invite members or mint more keys, whatever its user's role.
+ * @type {Array<[string, string, RegExp]>}
+ */
+const API_KEY_ROUTES = [
+  ["orders", "GET", /^\/v1\/orders$/],
+  ["orders", "POST", /^\/v1\/orders$/],
+  ["orders", "GET", /^\/v1\/orders\/summary$/],
+  ["orders", "POST", /^\/v1\/orders\/exports$/],
+  ["orders", "GET", /^\/v1\/orders\/exports\/[^/]+$/],
+  ["orders", "GET", /^\/v1\/orders\/exports\/[^/]+\/download$/],
+  ["orders", "GET", /^\/v1\/orders\/[^/]+$/],
+  ["orders", "GET", /^\/v1\/orders\/[^/]+\/on-chain$/],
+  ["orders", "POST", /^\/v1\/orders\/[^/]+\/quote$/],
+  ["orders", "POST", /^\/v1\/orders\/[^/]+\/cancel$/],
+  ["orders", "POST", /^\/v1\/orders\/[^/]+\/resolve-anomaly$/],
+  ["webhooks", "GET", /^\/v1\/webhooks$/],
+  ["webhooks", "POST", /^\/v1\/webhooks$/],
+  ["webhooks", "POST", /^\/v1\/webhooks\/test$/],
+  ["webhooks", "DELETE", /^\/v1\/webhooks\/[^/]+$/],
+  ["webhooks", "POST", /^\/v1\/webhooks\/[^/]+\/rotate-secret$/],
+  ["webhooks", "GET", /^\/v1\/webhooks\/[^/]+\/deliveries$/],
+  ["webhooks", "POST", /^\/v1\/webhooks\/[^/]+\/deliveries\/[^/]+\/resend$/],
+];
+
+/**
+ * Scope an API key needs for this route, or null when keys may not call it at all.
+ * @param {string} method
+ * @param {string} path
+ * @returns {string | null}
+ */
+export function apiKeyScopeForRoute(method, path) {
+  const verb = (method || "GET").toUpperCase();
+  for (const [scope, routeMethod, pattern] of API_KEY_ROUTES) {
+    if (routeMethod === verb && pattern.test(path)) return scope;
+  }
+  return null;
+}
