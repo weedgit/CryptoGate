@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * M3-03 sample merchant webhook verifier.
- * Matches apps/api webhook-deliver-rules: HMAC-SHA256(secret, rawBody) → hex.
+ * Matches apps/api webhook-deliver-rules v2: HMAC-SHA256(secret, `${ts}.${eventId}.${rawBody}`).
  *
  *   node doc/examples/webhook-verify.mjs
  *   WEBHOOK_SIGNING_SECRET=… PORT=8787 node doc/examples/webhook-verify.mjs --listen
@@ -26,6 +26,23 @@ export function verifyWebhookSignature(secret, rawBody, signatureHex) {
   const b = Buffer.from(signatureHex, "hex");
   if (a.length !== 32 || b.length !== 32) return false;
   return timingSafeEqual(a, b);
+}
+
+/** Largest accepted |now - X-PaymentGate-Timestamp|. */
+const MAX_SKEW_SECONDS = 300;
+
+/**
+ * Verify X-PaymentGate-Signature-V2 (timestamp and event id are signed with the body).
+ * @param {string} secret
+ * @param {{ rawBody: string | Buffer, timestamp: string, eventId: string, signatureHex: string, nowSec?: number }} p
+ */
+export function verifyWebhookSignatureV2(secret, p) {
+  const ts = Number(p.timestamp);
+  const now = p.nowSec ?? Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(ts) || Math.abs(now - ts) > MAX_SKEW_SECONDS) return false;
+  if (!p.eventId) return false;
+  const body = typeof p.rawBody === "string" ? p.rawBody : p.rawBody.toString("utf8");
+  return verifyWebhookSignature(secret, `${p.timestamp}.${p.eventId}.${body}`, p.signatureHex);
 }
 
 /**
@@ -54,6 +71,16 @@ function selfTest() {
   }
   if (verifyWebhookSignature(secret, body, "a".repeat(64))) {
     console.error("self-test: bad signature accepted");
+    process.exit(1);
+  }
+  const ts = String(Math.floor(Date.now() / 1000));
+  const v2 = signBody(secret, `${ts}.e1.${body}`);
+  if (!verifyWebhookSignatureV2(secret, { rawBody: body, timestamp: ts, eventId: "e1", signatureHex: v2 })) {
+    console.error("self-test: valid v2 signature rejected");
+    process.exit(1);
+  }
+  if (verifyWebhookSignatureV2(secret, { rawBody: body, timestamp: ts, eventId: "e2", signatureHex: v2 })) {
+    console.error("self-test: v2 accepted a swapped event id");
     process.exit(1);
   }
   if (!claimEventId("e1")) {
@@ -94,9 +121,10 @@ async function listen() {
       return;
     }
     const raw = await readRawBody(req);
-    const signature = String(req.headers["x-paymentgate-signature"] ?? "");
+    const signature = String(req.headers["x-paymentgate-signature-v2"] ?? "");
     const eventId = String(req.headers["x-paymentgate-event-id"] ?? "");
-    if (!verifyWebhookSignature(secret, raw, signature)) {
+    const timestamp = String(req.headers["x-paymentgate-timestamp"] ?? "");
+    if (!verifyWebhookSignatureV2(secret, { rawBody: raw, timestamp, eventId, signatureHex: signature })) {
       res.statusCode = 401;
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ ok: false, error: "signature_invalid" }));

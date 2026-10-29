@@ -5,7 +5,20 @@ import {
 } from "@paymentgate/domain";
 
 /**
- * Outbound merchant headers (M3-01). HMAC over exact raw body bytes.
+ * v2 signing input: `${timestamp}.${eventId}.${rawBody}`. The v1 HMAC covers only the body,
+ * so the timestamp and event id merchants use for replay checks were not authenticated
+ * (review M21).
+ * @param {string} timestamp
+ * @param {string} eventId
+ * @param {string} body
+ */
+export function webhookSigningInputV2(timestamp, eventId, body) {
+  return `${timestamp}.${eventId}.${body}`;
+}
+
+/**
+ * Outbound merchant headers (M3-01). v1: HMAC over exact raw body bytes (kept for existing
+ * integrations); v2: HMAC over timestamp, event id and body.
  * @param {{
  *   signingSecret: string,
  *   rawBody: string | Buffer,
@@ -20,9 +33,13 @@ export function webhookOutboundHeaders(p) {
   const signature = createHmac("sha256", p.signingSecret)
     .update(body, "utf8")
     .digest("hex");
+  const signatureV2 = createHmac("sha256", p.signingSecret)
+    .update(webhookSigningInputV2(timestamp, p.eventId, body), "utf8")
+    .digest("hex");
   return {
     "Content-Type": "application/json",
     "X-PaymentGate-Signature": signature,
+    "X-PaymentGate-Signature-V2": signatureV2,
     "X-PaymentGate-Timestamp": timestamp,
     "X-PaymentGate-Event-Id": p.eventId,
     "X-PaymentGate-Delivery-Id": p.deliveryId,
