@@ -2,7 +2,7 @@ import { validateMatchingSettings } from "@paymentgate/matching";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { findUserMfaById } from "../auth/users.mjs";
-import { verifyTotp } from "../auth/totp.mjs";
+import { sendMfaFailure, verifyUserTotp } from "../auth/mfa-attempts.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { updateOrgStatus } from "../orgs/org-store.mjs";
 import { toOrgAccount } from "../orgs/org-accounts.mjs";
@@ -26,7 +26,6 @@ import {
 } from "./compliance-store.mjs";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
-const INVALID_MFA = "Invalid MFA code";
 
 /**
  * GET /v1/platform/orgs/{orgId}/compliance-overrides
@@ -105,8 +104,9 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
     sendError(res, 403, "mfa_required", "MFA enrollment required before override");
     return;
   }
-  if (!verifyTotp(user.mfaSecret, parsed.mfaCode)) {
-    sendError(res, 401, "invalid_mfa", INVALID_MFA);
+  const mfa = await verifyUserTotp(user.id, user.mfaSecret, parsed.mfaCode);
+  if (!mfa.ok) {
+    sendMfaFailure(res, mfa);
     return;
   }
 

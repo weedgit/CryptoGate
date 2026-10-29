@@ -237,6 +237,13 @@ export async function handleRequest(req, res) {
   applyCorsHeaders(req, res);
   if (handleCorsPreflight(req, res)) return;
 
+  // URL parsing turns "\" into "/", but nginx matches locations on the raw path: a backslash
+  // would let `/v1/auth\login` skip the login limit zone (H8).
+  if ((req.url ?? "").includes("\\")) {
+    sendError(res, 400, "invalid_path", "Invalid request path");
+    return;
+  }
+
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const path = url.pathname;
   const method = req.method ?? "GET";

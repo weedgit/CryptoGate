@@ -64,6 +64,7 @@ export const AUDIT_ACTIONS = {
   posPinSet: "pos_pin_set",
   posPinClear: "pos_pin_clear",
   posPinVerify: "pos_pin_verify",
+  posPinVerifyFailed: "pos_pin_verify_failed",
   posPinAdminSet: "pos_pin_admin_set",
   posPinAdminClear: "pos_pin_admin_clear",
   posPinGenerated: "pos_pin_generated",

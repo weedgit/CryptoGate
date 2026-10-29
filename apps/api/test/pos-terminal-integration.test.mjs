@@ -311,7 +311,7 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.equal((await unlock(terminalToken, viewerPin)).status, 401);
   });
 
-  it("locks the terminal after 5 wrong PINs and resets on a correct one", async () => {
+  it("locks the terminal after 5 wrong PINs; a correct PIN does not clear the count (H8)", async () => {
     const { terminalToken, terminal } = await bind("mOwner");
     const pin = await generatePin("mOwner", merchantId, "mCashier");
     const wrong = pin === "999999" ? "999998" : "999999";
@@ -334,12 +334,26 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.ok(Number(second.retryAfter) >= 59 && Number(second.retryAfter) <= 60, second.retryAfter);
 
     await getPool().query(`UPDATE pos_terminals SET locked_until = now() - interval '1 second' WHERE id = $1`, [terminal.id]);
+    // Guess 4 times, unlock with your own PIN, guess again: the 5th wrong PIN still locks.
+    for (let i = 0; i < 4; i++) await unlock(terminalToken, wrong);
     assert.equal((await unlock(terminalToken, pin)).status, 200);
+    const afterOwnPin = await unlock(terminalToken, wrong);
+    assert.equal(afterOwnPin.status, 423);
+    assert.ok(Number(afterOwnPin.retryAfter) >= 119, afterOwnPin.retryAfter);
+
+    // An hour after the last wrong PIN, count and level start over.
+    await getPool().query(
+      `UPDATE pos_terminals
+       SET locked_until = NULL, last_failed_unlock_at = now() - interval '61 minutes'
+       WHERE id = $1`,
+      [terminal.id],
+    );
+    assert.equal((await unlock(terminalToken, wrong)).status, 401);
     const { rows } = await getPool().query(
       `SELECT failed_unlocks, lockout_level, locked_until FROM pos_terminals WHERE id = $1`,
       [terminal.id],
     );
-    assert.deepEqual(rows[0], { failed_unlocks: 0, lockout_level: 0, locked_until: null });
+    assert.deepEqual(rows[0], { failed_unlocks: 1, lockout_level: 0, locked_until: null });
   });
 
   it("alerts once when the org reaches 20 wrong PINs in an hour, without locking the org", async () => {

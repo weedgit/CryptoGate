@@ -4,8 +4,17 @@ import { hashSessionToken } from "../auth/session-token.mjs";
 import { isOrgIconValue } from "../orgs/org-accounts.mjs";
 
 export const TERMINAL_TOKEN_PREFIX = "pgt_";
-/** Wrong PINs in a row before the terminal locks. */
+/** Wrong PINs (within UNLOCK_FAILURE_MEMORY) before the terminal locks. */
 export const UNLOCK_FAILURES_PER_LOCKOUT = 5;
+/**
+ * Wrong PINs are remembered this long after the last one. A correct PIN does not clear them:
+ * the PIN both identifies and authenticates, so otherwise a cashier could guess 4 times,
+ * unlock with their own PIN, and repeat until they hit the Owner's (H8).
+ */
+export const UNLOCK_FAILURE_MEMORY_SECONDS = 60 * 60;
+/** Wrong dashboard POS PIN checks per user before a pause (POST /v1/auth/pos-pin/verify). */
+export const PIN_VERIFY_MAX_FAILURES = 5;
+export const PIN_VERIFY_WINDOW_MINUTES = 15;
 export const UNLOCK_LOCKOUT_BASE_SECONDS = 30;
 export const UNLOCK_LOCKOUT_MAX_SECONDS = 15 * 60;
 
@@ -147,28 +156,43 @@ export async function revokeTerminal(terminalId, input) {
 }
 
 /**
- * Count one wrong PIN. Every 5th in a row locks the terminal for 30 s, doubling per
- * lockout up to 15 min.
+ * Count one wrong PIN. Every 5th locks the terminal for 30 s, doubling per lockout up to
+ * 15 min. Count and level start over an hour after the last wrong PIN, not on a success.
  * @param {string} terminalId
  * @returns {Promise<{ lockedUntil: Date | null }>}
  */
 export async function recordUnlockFailure(terminalId) {
   const { rows } = await getPool().query(
-    `UPDATE pos_terminals
-     SET failed_unlocks = CASE WHEN failed_unlocks + 1 >= $2 THEN 0 ELSE failed_unlocks + 1 END,
-         lockout_level = CASE WHEN failed_unlocks + 1 >= $2 THEN lockout_level + 1 ELSE lockout_level END,
+    `WITH current AS (
+       SELECT id,
+              CASE WHEN fresh THEN failed_unlocks ELSE 0 END AS failures,
+              CASE WHEN fresh THEN lockout_level ELSE 0 END AS level
+       FROM (
+         SELECT id, failed_unlocks, lockout_level,
+                COALESCE(last_failed_unlock_at > now() - make_interval(secs => $5), false) AS fresh
+         FROM pos_terminals
+         WHERE id = $1
+         FOR UPDATE
+       ) t
+     )
+     UPDATE pos_terminals p
+     SET failed_unlocks = CASE WHEN c.failures + 1 >= $2 THEN 0 ELSE c.failures + 1 END,
+         lockout_level = CASE WHEN c.failures + 1 >= $2 THEN c.level + 1 ELSE c.level END,
          locked_until = CASE
-           WHEN failed_unlocks + 1 >= $2
-             THEN now() + make_interval(secs => LEAST($3 * power(2, LEAST(lockout_level, 10)), $4))
-           ELSE locked_until
-         END
-     WHERE id = $1
-     RETURNING locked_until`,
+           WHEN c.failures + 1 >= $2
+             THEN now() + make_interval(secs => LEAST($3 * power(2, LEAST(c.level, 10)), $4))
+           ELSE p.locked_until
+         END,
+         last_failed_unlock_at = now()
+     FROM current c
+     WHERE p.id = c.id
+     RETURNING p.locked_until`,
     [
       terminalId,
       UNLOCK_FAILURES_PER_LOCKOUT,
       UNLOCK_LOCKOUT_BASE_SECONDS,
       UNLOCK_LOCKOUT_MAX_SECONDS,
+      UNLOCK_FAILURE_MEMORY_SECONDS,
     ],
   );
   const until = rows[0]?.locked_until;
@@ -176,14 +200,17 @@ export async function recordUnlockFailure(terminalId) {
 }
 
 /**
- * @param {string} terminalId
+ * Wrong dashboard POS PIN checks by this user in the last PIN_VERIFY_WINDOW_MINUTES.
+ * @param {string} userId
  */
-export async function resetUnlockFailures(terminalId) {
-  await getPool().query(
-    `UPDATE pos_terminals SET failed_unlocks = 0, lockout_level = 0, locked_until = NULL
-     WHERE id = $1`,
-    [terminalId],
+export async function countRecentPinVerifyFailures(userId) {
+  const { rows } = await getPool().query(
+    `SELECT count(*)::int AS n FROM audit_log
+     WHERE actor_user_id = $1 AND action = 'pos_pin_verify_failed'
+       AND created_at > now() - make_interval(mins => $2)`,
+    [userId, PIN_VERIFY_WINDOW_MINUTES],
   );
+  return rows[0]?.n ?? 0;
 }
 
 /**

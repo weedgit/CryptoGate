@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, request } from "node:http";
 import { handleRequest } from "../src/http/app.mjs";
 
 function listen(server) {
@@ -179,6 +179,39 @@ describe("auth HTTP (no DB)", () => {
         body: JSON.stringify({ email: "a@b.com", role: "viewer" }),
       });
       assert.equal(res.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
+
+  it("rejects backslash paths that would dodge nginx's login zone (H8)", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const { port } = new URL(base);
+      const status = await new Promise((resolve, reject) => {
+        const req = request(
+          {
+            host: "127.0.0.1",
+            port,
+            method: "POST",
+            path: "/v1/auth\\login",
+            headers: { "Content-Type": "application/json" },
+          },
+          (res) => {
+            res.resume();
+            resolve(res.statusCode);
+          },
+        );
+        req.on("error", reject);
+        req.end(JSON.stringify({ email: "a@b.c", password: "x" }));
+      });
+      assert.equal(status, 400);
     } finally {
       await close(server);
     }

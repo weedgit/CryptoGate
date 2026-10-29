@@ -4,6 +4,7 @@ import {
   API_KEY_SCOPES,
   ApiKeyScope,
 } from "@paymentgate/domain";
+import { clientIp } from "../rate-limit/rate-limit-rules.mjs";
 
 export { API_KEY_MAX_PER_ORG, API_KEY_SCOPES, ApiKeyScope };
 
@@ -204,12 +205,7 @@ function ipv4ToInt(ip) {
  * @param {import("node:http").IncomingMessage} req
  */
 export function clientIpFromRequest(req) {
-  const xf = req.headers["x-forwarded-for"];
-  const raw = Array.isArray(xf) ? xf[0] : xf;
-  if (typeof raw === "string" && raw.trim()) {
-    return normalizeClientIp(raw.split(",")[0] ?? "");
-  }
-  return normalizeClientIp(req.socket?.remoteAddress ?? "");
+  return normalizeClientIp(clientIp(req.headers, req.socket?.remoteAddress));
 }
 
 /**

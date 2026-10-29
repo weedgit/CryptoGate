@@ -10,7 +10,7 @@ import {
   canUpdateAgentPayout,
 } from "../orgs/role-policy.mjs";
 import { findUserMfaById } from "../auth/users.mjs";
-import { verifyTotp } from "../auth/totp.mjs";
+import { sendMfaFailure, verifyUserTotp } from "../auth/mfa-attempts.mjs";
 import {
   AgentNotificationEventType,
   notifyAgentOrg,
@@ -134,8 +134,9 @@ export async function handlePutAgentPayout(req, res, orgId) {
     );
     return;
   }
-  if (!verifyTotp(user.mfaSecret, validated.parsed.mfaCode)) {
-    sendError(res, 401, "invalid_mfa", "Invalid MFA code");
+  const mfa = await verifyUserTotp(user.id, user.mfaSecret, validated.parsed.mfaCode);
+  if (!mfa.ok) {
+    sendMfaFailure(res, mfa);
     return;
   }
 

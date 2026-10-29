@@ -13,6 +13,11 @@ import {
   verifyUserPosPin,
 } from "../auth/users.mjs";
 import { validatePosPin } from "../auth/pos-pin-hash.mjs";
+import {
+  PIN_VERIFY_MAX_FAILURES,
+  PIN_VERIFY_WINDOW_MINUTES,
+  countRecentPinVerifyFailures,
+} from "../pos/pos-terminal-store.mjs";
 import { verifyPassword } from "../auth/password-hash.mjs";
 import { sessionFromUserWithSetup } from "../auth/session-payload.mjs";
 import {
@@ -20,7 +25,8 @@ import {
   clearUserMfa,
   setPendingMfaSecret,
 } from "../auth/mfa.mjs";
-import { generateTotpSecret, otpauthUrl, verifyTotp } from "../auth/totp.mjs";
+import { generateTotpSecret, otpauthUrl } from "../auth/totp.mjs";
+import { sendMfaFailure, verifyUserTotp } from "../auth/mfa-attempts.mjs";
 import {
   createPasswordResetToken,
   findValidPasswordReset,
@@ -308,8 +314,9 @@ export async function handleMfaVerify(req, res) {
   }
 
   if (user.mfaPendingSecret) {
-    if (!verifyTotp(user.mfaPendingSecret, code)) {
-      sendError(res, 401, "invalid_mfa", INVALID_MFA);
+    const mfa = await verifyUserTotp(user.id, user.mfaPendingSecret, code);
+    if (!mfa.ok) {
+      sendMfaFailure(res, mfa);
       return;
     }
     await activatePendingMfa(user.id);
@@ -323,8 +330,9 @@ export async function handleMfaVerify(req, res) {
   }
 
   if (user.mfaSecret) {
-    if (!verifyTotp(user.mfaSecret, code)) {
-      sendError(res, 401, "invalid_mfa", INVALID_MFA);
+    const login = await verifyUserTotp(user.id, user.mfaSecret, code);
+    if (!login.ok) {
+      sendMfaFailure(res, login);
       return;
     }
     await markSessionMfaVerified(auth.token);
@@ -751,8 +759,17 @@ export async function handleVerifyPosPin(req, res) {
     );
     return;
   }
+  if ((await countRecentPinVerifyFailures(auth.userId)) >= PIN_VERIFY_MAX_FAILURES) {
+    res.setHeader("Retry-After", String(PIN_VERIFY_WINDOW_MINUTES * 60));
+    sendError(res, 429, "pos_pin_locked", "Too many wrong PINs. Try again in a few minutes.");
+    return;
+  }
   const ok = await verifyUserPosPin(auth.userId, pin);
   if (!ok) {
+    await insertAuditEvent({
+      actorUserId: auth.userId,
+      action: AUDIT_ACTIONS.posPinVerifyFailed,
+    });
     sendError(res, 401, "invalid_pos_pin", "Incorrect PIN. Try again.");
     return;
   }

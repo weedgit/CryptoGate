@@ -28,7 +28,6 @@ import {
   insertTerminal,
   listTerminalsForOrg,
   recordUnlockFailure,
-  resetUnlockFailures,
   revokeTerminal,
   touchTerminal,
 } from "./pos-terminal-store.mjs";
@@ -324,7 +323,6 @@ export async function handleUnlock(req, res) {
     return;
   }
 
-  await resetUnlockFailures(terminal.id);
   await revokeTerminalSessions(terminal.id);
   const created = await createSession({
     userId,
