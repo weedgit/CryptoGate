@@ -187,6 +187,7 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
 
     await addUser("mOwner", merchantId, "owner", { mfa: true });
     await addUser("mAdminNoMfa", merchantId, "administrator");
+    await addUser("mAdmin", merchantId, "administrator", { mfa: true });
     await addUser("mCashier", merchantId, "cashier");
     await addUser("mCashierNoProfile", merchantId, "cashier", { profile: false });
     await addUser("mViewer", merchantId, "viewer");
@@ -309,6 +310,24 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
 
     const viewerPin = await generatePin("mOwner", merchantId, "mViewer");
     assert.equal((await unlock(terminalToken, viewerPin)).status, 401);
+  });
+
+  it("an Administrator cannot set or clear an Owner's POS PIN (M17)", async () => {
+    for (const method of ["PUT", "DELETE"]) {
+      const res = await api(`/v1/orgs/${merchantId}/users/${users.mOwner.id}/pos-pin`, {
+        method,
+        session: await loginToken("mAdmin"),
+        body: method === "PUT" ? { generate: true } : undefined,
+      });
+      assert.equal(res.status, 403, `${method} ${JSON.stringify(res.json)}`);
+    }
+    // An Administrator still manages cashier PINs.
+    const cashier = await api(`/v1/orgs/${merchantId}/users/${users.mCashier.id}/pos-pin`, {
+      method: "PUT",
+      session: await loginToken("mAdmin"),
+      body: { generate: true },
+    });
+    assert.equal(cashier.status, 200, JSON.stringify(cashier.json));
   });
 
   it("locks the terminal after 5 wrong PINs; a correct PIN does not clear the count (H8)", async () => {

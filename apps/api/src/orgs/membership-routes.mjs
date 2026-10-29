@@ -633,6 +633,20 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
 }
 
 /**
+ * A generated PIN is shown in plaintext and unlocks a terminal as that member, so an
+ * Administrator must not set or clear an Owner's PIN (review M17): only an Owner of the org
+ * or the Platform Owner may.
+ * @returns {Promise<boolean>} false when the response was sent
+ */
+async function mayManageThisMemberPin(caller, org, membership, res) {
+  if (membership.role !== "owner") return true;
+  if (caller.userId === membership.userId) return true;
+  if (caller.platformOwner || (await effectiveRoleOnOrg(caller, org)) === "owner") return true;
+  sendError(res, 403, "forbidden", "Only an Owner may set or clear an Owner's POS PIN");
+  return false;
+}
+
+/**
  * PUT /v1/orgs/{orgId}/users/{userId}/pos-pin — Owner/Admin set member POS PIN (no current PIN).
  */
 export async function handleAdminPutMemberPosPin(req, res, orgId, userId) {
@@ -671,6 +685,7 @@ export async function handleAdminPutMemberPosPin(req, res, orgId, userId) {
     sendError(res, 404, "not_found", "Membership not found");
     return;
   }
+  if (!(await mayManageThisMemberPin(caller, org, existing, res))) return;
 
   let body;
   try {
@@ -740,6 +755,7 @@ export async function handleAdminDeleteMemberPosPin(req, res, orgId, userId) {
     sendError(res, 404, "not_found", "Membership not found");
     return;
   }
+  if (!(await mayManageThisMemberPin(caller, org, existing, res))) return;
 
   const had = await userHasPosPin(userId);
   if (had) {
