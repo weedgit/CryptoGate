@@ -24,6 +24,27 @@ const baseTransfer = {
 };
 
 describe("@paymentgate/watcher inbound match wire (M3-41)", () => {
+  it("a paid order at the address does not absorb the next payment (M6)", async () => {
+    const { applied, result } = await matchInboundTransfer({
+      transfer: { ...baseTransfer, txHash: "0xnext" },
+      openOrders: [
+        { ...baseOrder, status: "verifying" },
+        { ...baseOrder, orderId: "33333333-3333-3333-3333-333333333333", status: "pending_payment" },
+      ],
+    });
+    assert.equal(applied, true);
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "33333333-3333-3333-3333-333333333333");
+  });
+
+  it("uses the order's underpay tolerance (M6)", async () => {
+    const { result } = await matchInboundTransfer({
+      transfer: { ...baseTransfer, amount: "49.50" },
+      openOrders: [{ ...baseOrder, status: "pending_payment", underpayTolerance: "1" }],
+    });
+    assert.equal(result.status, "verifying");
+  });
+
   it("matches a checksummed Ethereum order to the lowercase RPC address (H1)", async () => {
     const checksummed = "0x52908400098527886E0F7030069857D2E4169EE7";
     const { applied, result } = await matchInboundTransfer({
