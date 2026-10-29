@@ -13,6 +13,10 @@ export function getWatcherPool() {
     throw new Error("DATABASE_URL is required for watcher DB access");
   }
   pool = new pg.Pool({ connectionString });
+  // Idle-client errors (Postgres restart / network) must not crash the watcher (review M26).
+  pool.on("error", (err) => {
+    console.error("watcher postgres idle client error", err?.message ?? err);
+  });
   return pool;
 }
 
