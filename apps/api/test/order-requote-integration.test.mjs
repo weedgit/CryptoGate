@@ -206,7 +206,13 @@ describe("order re-quote + pricing kill switch (Postgres integration)", { skip }
     assert.equal(before.validity_seconds, 1800);
 
     const other = await createOrder({ asset: "USDT", network: "tron", amountUsd: "100" });
-    assert.notEqual(String((await row(other.id)).payable_amount), String(before.payable_amount));
+    const otherRow = await row(other.id);
+    assert.notEqual(String(otherRow.payable_amount), String(before.payable_amount));
+    // Base units follow the bumped payable, not the pre-bump quote (M12).
+    assert.equal(
+      String(otherRow.pay_amount_base_units),
+      String(Math.round(Number(otherRow.payable_amount) * 10 ** Number(otherRow.asset_decimals))),
+    );
 
     prices.USDT = "0.98";
     clearUsdPriceCache();

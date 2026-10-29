@@ -1,4 +1,5 @@
 import { getAssetNetworkConfig } from "@paymentgate/domain";
+import { majorToMinor } from "@paymentgate/matching";
 import { sameAddressSql } from "../db/address-sql.mjs";
 import { getPool } from "../db/pool.mjs";
 import { toPaymentOrder } from "./order-map.mjs";
@@ -322,6 +323,23 @@ function dustFloorOf(query) {
   return getAssetNetworkConfig(query.asset, query.network)?.dustFloor ?? "0";
 }
 
+/**
+ * Base units of the amount the payer must send. Derived from the stored payable, not the
+ * quote: Mode C bumps the payable after quoting, and integrators that use base units asked
+ * for the pre-bump amount (review M12).
+ * @param {string} payableAmount major units
+ * @param {number | null | undefined} decimals
+ * @param {string | null | undefined} fallback quote value when decimals are unknown
+ */
+function payableBaseUnits(payableAmount, decimals, fallback) {
+  if (!Number.isInteger(decimals) || decimals < 0) return fallback ?? null;
+  try {
+    return majorToMinor(String(payableAmount).trim(), decimals).toString();
+  } catch {
+    return fallback ?? null;
+  }
+}
+
 export async function listReservedPayableAmounts(client, query) {
   const ids = merchantIdsOf(query);
   const { rows } = await client.query(
@@ -552,7 +570,7 @@ export async function insertPaymentOrder(input, client) {
         input.rateSource ?? null,
         input.rateFetchedAt ?? null,
         input.quoteExpiresAt ?? null,
-        input.payAmountBaseUnits ?? null,
+        payableBaseUnits(input.payableAmount, input.assetDecimals, input.payAmountBaseUnits),
         input.assetDecimals ?? null,
         input.rateSources ? JSON.stringify(input.rateSources) : null,
         input.referenceRate ?? null,
@@ -677,7 +695,7 @@ export async function applyOrderRequote(client, orderId, input) {
       q.rateSource,
       q.rateFetchedAt,
       q.quoteExpiresAt,
-      q.payAmountBaseUnits,
+      payableBaseUnits(input.payableAmount, q.assetDecimals, q.payAmountBaseUnits),
       q.assetDecimals,
       q.rateSources ? JSON.stringify(q.rateSources) : null,
       q.referenceRate ?? null,
