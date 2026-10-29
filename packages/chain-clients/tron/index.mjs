@@ -50,7 +50,8 @@ export function dedupeTransfersByTxHash(transfers) {
   const seen = new Set();
   const out = [];
   for (const t of transfers) {
-    const key = `${t.network ?? ""}:${t.txHash}`;
+    // One tx may pay several watched addresses (batch withdrawals): key per output (M5).
+    const key = `${t.network ?? ""}:${t.txHash}:${String(t.toAddress ?? "").trim().toLowerCase()}`;
     if (!t.txHash || seen.has(key)) continue;
     seen.add(key);
     out.push(t);
@@ -79,7 +80,11 @@ export async function listRecentTransfers(options = {}) {
               watched.some((w) => w === String(t.toAddress ?? "").trim()),
             );
       return {
-        transfers: dedupeTransfersByTxHash(filtered),
+        // Dev stub: undated rows count as "just now" so they stay eligible for open orders.
+        transfers: dedupeTransfersByTxHash(filtered).map((t) => ({
+          blockTimestampMs: Date.now(),
+          ...t,
+        })),
         mode: "stub-env",
         watchedAddressCount: watched.length,
         skippedInvalidAddresses: skippedInvalid,
@@ -117,12 +122,14 @@ export async function listRecentTransfers(options = {}) {
     const live = cfg.nativeAsset
       ? await fetchNativeTrxTransfersForAddresses({
           watchedAddresses: watched,
+          addressSinceMs: options.addressSinceMs,
           fetchImpl: options.fetch,
           sleepImpl: options.sleep,
           runtimeConfig: cfg,
         })
       : await fetchTrc20TransfersForAddresses({
           watchedAddresses: watched,
+          addressSinceMs: options.addressSinceMs,
           fetchImpl: options.fetch,
           sleepImpl: options.sleep,
           runtimeConfig: cfg,
@@ -168,6 +175,7 @@ export async function getTransactionConfirmationState(args) {
 
   return fetchTransactionConfirmationState({
     txHash: args.txHash,
+    toAddress: args.toAddress,
     asset: args?.asset ?? AssetCode.USDT,
     network: args?.network ?? cfg.network,
     fetchImpl: args.fetch,

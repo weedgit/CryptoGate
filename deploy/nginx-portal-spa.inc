@@ -1,4 +1,5 @@
 # PaymentGate — portal SPA (shared by platform / agent / merchant subdomains)
+# Locations with their own add_header must include nginx-portal-headers.conf (D5).
 root /root/PaymentGate/apps/web/dist;
 index index.html;
 client_max_body_size 2m;
@@ -8,7 +9,7 @@ location = /health {
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 
@@ -41,6 +42,7 @@ location /v1/ {
 location /assets/ {
     expires 5m;
     add_header Cache-Control "public, max-age=300, must-revalidate";
+    include /root/PaymentGate/deploy/nginx-portal-headers.conf;
     try_files $uri =404;
 }
 
@@ -52,6 +54,7 @@ location = /invite {
 # Always revalidate the SPA shell so deploys pick up new hashed chunk names.
 location = /index.html {
     add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    include /root/PaymentGate/deploy/nginx-portal-headers.conf;
     add_header Pragma "no-cache" always;
     add_header Expires "0" always;
     try_files $uri =404;
@@ -59,6 +62,7 @@ location = /index.html {
 
 location / {
     add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    include /root/PaymentGate/deploy/nginx-portal-headers.conf;
     add_header Pragma "no-cache" always;
     add_header Expires "0" always;
     try_files $uri $uri/ /index.html;

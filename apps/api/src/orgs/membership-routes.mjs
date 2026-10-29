@@ -12,6 +12,7 @@ import {
 import { collectAncestorOrgIds } from "./org-ancestry.mjs";
 import {
   canAssignOrgRole,
+  canChangeOwnerSeat,
   canInviteToOrg,
   canListOrgUsers,
   canManageMemberPosPin,
@@ -202,6 +203,22 @@ export async function handleInviteOrgUser(req, res, orgId) {
     sendError(res, 403, "forbidden", "Only the org Owner may manage team");
     return;
   }
+  if (
+    role === "owner" &&
+    !canChangeOwnerSeat({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
+      memberCount,
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_seat_forbidden",
+      "Only this org's Owner or the Platform Owner may add an Owner",
+    );
+    return;
+  }
 
   // One email = one account in one org with one role; registered emails cannot be invited.
   const registered = await findUserByEmail(email);
@@ -281,9 +298,6 @@ export async function handleInviteOrgUser(req, res, orgId) {
       role,
       provisioned: true,
       orgType: org.type,
-      ...(org.type === "agent" || org.type === "merchant"
-        ? { initialSignIn: temporaryPassword }
-        : {}),
     },
   });
 
@@ -362,9 +376,32 @@ export async function handleAssignOrgUserRole(req, res, orgId, userId) {
     return;
   }
 
+  if (caller.userId === userId) {
+    sendError(res, 403, "cannot_change_own_role", "You cannot change your own role");
+    return;
+  }
+
   const existing = await findMembership(orgId, userId, { includePaused: true });
   if (!existing) {
     sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  if (
+    (existing.role === "owner" || role === "owner") &&
+    existing.role !== role &&
+    !canChangeOwnerSeat({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
+      memberCount: await countOrgMemberships(orgId),
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_seat_forbidden",
+      "Only this org's Owner or the Platform Owner may add or remove an Owner",
+    );
     return;
   }
 
@@ -442,6 +479,23 @@ export async function handleSetOrgUserStatus(req, res, orgId, userId) {
   const existing = await findMembership(orgId, userId, { includePaused: true });
   if (!existing) {
     sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  if (
+    existing.role === "owner" &&
+    !canChangeOwnerSeat({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
+      memberCount: await countOrgMemberships(orgId),
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_seat_forbidden",
+      "Only this org's Owner or the Platform Owner may pause or resume an Owner",
+    );
     return;
   }
 
@@ -528,6 +582,23 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
     return;
   }
 
+  if (
+    existing.role === "owner" &&
+    !canChangeOwnerSeat({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
+      memberCount: await countOrgMemberships(orgId),
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_seat_forbidden",
+      "Only this org's Owner or the Platform Owner may remove an Owner",
+    );
+    return;
+  }
+
   const owners = await countOwners(orgId);
   if (
     isLastActiveOwnerLifecycleBlock({
@@ -559,6 +630,20 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
 
   res.writeHead(204);
   res.end();
+}
+
+/**
+ * A generated PIN is shown in plaintext and unlocks a terminal as that member, so an
+ * Administrator must not set or clear an Owner's PIN (review M17): only an Owner of the org
+ * or the Platform Owner may.
+ * @returns {Promise<boolean>} false when the response was sent
+ */
+async function mayManageThisMemberPin(caller, org, membership, res) {
+  if (membership.role !== "owner") return true;
+  if (caller.userId === membership.userId) return true;
+  if (caller.platformOwner || (await effectiveRoleOnOrg(caller, org)) === "owner") return true;
+  sendError(res, 403, "forbidden", "Only an Owner may set or clear an Owner's POS PIN");
+  return false;
 }
 
 /**
@@ -600,6 +685,7 @@ export async function handleAdminPutMemberPosPin(req, res, orgId, userId) {
     sendError(res, 404, "not_found", "Membership not found");
     return;
   }
+  if (!(await mayManageThisMemberPin(caller, org, existing, res))) return;
 
   let body;
   try {
@@ -669,6 +755,7 @@ export async function handleAdminDeleteMemberPosPin(req, res, orgId, userId) {
     sendError(res, 404, "not_found", "Membership not found");
     return;
   }
+  if (!(await mayManageThisMemberPin(caller, org, existing, res))) return;
 
   const had = await userHasPosPin(userId);
   if (had) {

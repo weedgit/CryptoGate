@@ -29,6 +29,7 @@ import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
 import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 import { loadSeedEnv } from "./seed-env.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const PREFIX = "Load";
 const CASHIER_PASSWORD = "LoadTest1!ab";
@@ -240,6 +241,7 @@ async function createMerchantBundle({
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);

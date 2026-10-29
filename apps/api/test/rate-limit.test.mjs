@@ -99,11 +99,29 @@ describe("rate-limit rules (M3-11)", () => {
     assert.equal(isRateLimitExemptPath("GET", "/v1/orgs"), false);
   });
 
-  it("reads the first X-Forwarded-For hop", () => {
+  it("trusts only the hop nginx appended, never the client-supplied leftmost (H8)", () => {
     assert.equal(
       clientIp({ "x-forwarded-for": "203.0.113.1, 10.0.0.1" }, "127.0.0.1"),
-      "203.0.113.1",
+      "10.0.0.1",
     );
+    assert.equal(
+      clientIp(
+        { "x-real-ip": "198.51.100.7", "x-forwarded-for": "1.2.3.4, 198.51.100.7" },
+        "127.0.0.1",
+      ),
+      "198.51.100.7",
+    );
+  });
+
+  it("counts login, MFA and reset guesses in the login bucket", () => {
+    for (const path of [
+      "/v1/auth/login",
+      "/v1/auth/mfa/verify",
+      "/v1/auth/forgot-password",
+      "/v1/auth/reset-password",
+    ]) {
+      assert.equal(isLoginPath("POST", path), true, path);
+    }
   });
 
   it("ignores spoofed X-Forwarded-For from a non-loopback peer", () => {
@@ -150,6 +168,42 @@ describe("applyRateLimits", () => {
       if (prev === undefined) delete process.env.RATE_LIMIT_LOGIN_PER_MINUTE;
       else process.env.RATE_LIMIT_LOGIN_PER_MINUTE = prev;
     }
+  });
+
+  it("a rotating spoofed X-Forwarded-For cannot dodge the login limit (H8)", () => {
+    const prev = process.env.RATE_LIMIT_LOGIN_PER_MINUTE;
+    process.env.RATE_LIMIT_LOGIN_PER_MINUTE = "2";
+    try {
+      const attempt = (i) => {
+        const req = {
+          headers: {
+            "x-real-ip": "203.0.113.77",
+            "x-forwarded-for": `10.9.9.${i}, 203.0.113.77`,
+          },
+          method: "POST",
+          url: "/v1/auth/login",
+          socket: { remoteAddress: "127.0.0.1" },
+        };
+        return applyRateLimits(req, mockRes(), { method: "POST", path: "/v1/auth/login" });
+      };
+      assert.equal(attempt(1), false);
+      assert.equal(attempt(2), false);
+      assert.equal(attempt(3), true);
+    } finally {
+      if (prev === undefined) delete process.env.RATE_LIMIT_LOGIN_PER_MINUTE;
+      else process.env.RATE_LIMIT_LOGIN_PER_MINUTE = prev;
+    }
+  });
+
+  it("evicts idle buckets", async () => {
+    const { commitRateLimit, rateLimitBucketCount } = await import(
+      "../src/rate-limit/rate-limit-store.mjs"
+    );
+    const t0 = 1_000_000;
+    for (let i = 0; i < 100; i += 1) commitRateLimit(`ip:spoof-${i}`, [t0]);
+    assert.ok(rateLimitBucketCount() >= 100);
+    commitRateLimit("ip:later", [t0 + 2 * 60_000]);
+    assert.equal(rateLimitBucketCount(), 1);
   });
 
   it("shares the login bucket for POS PIN verify", () => {

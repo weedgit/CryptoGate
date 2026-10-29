@@ -68,6 +68,23 @@ export function setMailPacingForTest(next) {
 }
 
 /**
+ * Log-safe text: verification codes (in OTP subjects) never reach the logs.
+ * @param {string} text
+ */
+export function redactCodes(text) {
+  return String(text ?? "").replace(/\b\d{4,8}\b/g, "******");
+}
+
+/**
+ * One plain address only: "a@x,b@y" passed validation and nodemailer mailed both.
+ * @param {string} to
+ */
+export function isSingleEmailAddress(to) {
+  return /^[^\s@,;<>"'()]+@[^\s@,;<>"'()]+\.[^\s@,;<>"'()]+$/.test(String(to ?? "")) &&
+    String(to).length <= 254;
+}
+
+/**
  * @param {{ to: string, subject: string, text: string, html?: string, headers?: Record<string, string> }} message
  * @param {{ bulk?: boolean }} [opts]
  * @returns {Promise<{ delivered: boolean, mode: "stub" | "smtp" | "suppressed" }>}
@@ -79,19 +96,24 @@ async function sendTransactionalEmail(message, opts = {}) {
   const html = typeof message?.html === "string" && message.html ? message.html : undefined;
   const headers = message?.headers && typeof message.headers === "object" ? message.headers : undefined;
 
+  if (!isSingleEmailAddress(to)) {
+    console.warn(`[mail:refused] invalid recipient`);
+    return { delivered: false, mode: "suppressed" };
+  }
+
   if (!isOutboundMailConfigured()) {
-    console.info(`[mail:stub] to=${to} subject=${subject}`);
+    console.info(`[mail:stub] to=${to} subject=${redactCodes(subject)}`);
     return { delivered: false, mode: "stub" };
   }
 
   const cfg = getSmtpConfig();
   if (!cfg) {
-    console.info(`[mail:stub] to=${to} subject=${subject}`);
+    console.info(`[mail:stub] to=${to} subject=${redactCodes(subject)}`);
     return { delivered: false, mode: "stub" };
   }
 
   if (isSuppressedRecipient(to)) {
-    console.info(`[mail:suppressed] to=${to} subject=${subject}`);
+    console.info(`[mail:suppressed] to=${to} subject=${redactCodes(subject)}`);
     return { delivered: false, mode: "suppressed" };
   }
 
@@ -127,7 +149,7 @@ async function sendTransactionalEmail(message, opts = {}) {
         ...(html ? { html } : {}),
         ...(headers ? { headers } : {}),
       });
-      console.info(`[mail:smtp] to=${to} subject=${subject}`);
+      console.info(`[mail:smtp] to=${to} subject=${redactCodes(subject)}`);
       return { delivered: true, mode: "smtp" };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

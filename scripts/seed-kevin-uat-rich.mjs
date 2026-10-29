@@ -37,6 +37,7 @@ import {
 } from "./seed-nile-wallets.mjs";
 import { buildCommissionTreeSnapshot } from "./seed-commission-helpers.mjs";
 import { seedMetricsRateHistory } from "./seed-metrics-rates.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MARKER_AGENT = "Kevin Agent";
@@ -899,6 +900,7 @@ async function resyncSeedFxQuotes(pool) {
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);

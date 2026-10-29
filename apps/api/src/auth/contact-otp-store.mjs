@@ -134,22 +134,22 @@ export async function consumeContactOtp(userId, channel, code, opts = {}) {
     ]);
     return { status: "expired" };
   }
-  if (Number(row.attempt_count) >= OTP_MAX_ATTEMPTS) {
-    return { status: "locked" };
-  }
+  // Reserve this attempt before checking: concurrent guesses each read the old count and
+  // all passed the limit (review: OTP attempt race).
+  const { rows: reserved } = await pool.query(
+    `UPDATE contact_otps
+     SET attempt_count = attempt_count + 1
+     WHERE id = $1 AND consumed_at IS NULL AND attempt_count < $2
+     RETURNING attempt_count`,
+    [row.id, OTP_MAX_ATTEMPTS],
+  );
+  if (!reserved[0]) return { status: "locked" };
 
   const ok = opts.check
     ? await opts.check(String(row.destination ?? ""), trimmed)
     : hashSessionToken(trimmed) === row.code_hash;
   if (!ok) {
-    const { rows: updated } = await pool.query(
-      `UPDATE contact_otps
-       SET attempt_count = attempt_count + 1
-       WHERE id = $1
-       RETURNING attempt_count`,
-      [row.id],
-    );
-    if (Number(updated[0]?.attempt_count) >= OTP_MAX_ATTEMPTS) {
+    if (Number(reserved[0].attempt_count) >= OTP_MAX_ATTEMPTS) {
       await pool.query(`UPDATE contact_otps SET consumed_at = now() WHERE id = $1`, [
         row.id,
       ]);
@@ -158,9 +158,13 @@ export async function consumeContactOtp(userId, channel, code, opts = {}) {
     return { status: "invalid" };
   }
 
-  await pool.query(`UPDATE contact_otps SET consumed_at = now() WHERE id = $1`, [
-    row.id,
-  ]);
+  // Spend the code once even if two correct submissions race.
+  const { rows: spent } = await pool.query(
+    `UPDATE contact_otps SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL
+     RETURNING id`,
+    [row.id],
+  );
+  if (!spent[0]) return { status: "expired" };
   return {
     status: "ok",
     destination: typeof row.destination === "string" ? row.destination : "",
@@ -182,6 +186,7 @@ export async function revokeContactOtp(userId, channel) {
   );
 }
 
+/** OTP codes in API responses only for explicit dev/test runs (an unset NODE_ENV fails closed). */
 export function echoOtpInHttp() {
-  return process.env.NODE_ENV !== "production";
+  return process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 }

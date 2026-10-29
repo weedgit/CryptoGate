@@ -35,21 +35,33 @@ export function otpauthUrl(email, secretBase32, issuer = "PaymentGate") {
  * @param {{ nowMs?: number }} [opts]
  */
 export function verifyTotp(secretBase32, code, opts = {}) {
+  return totpMatchStep(secretBase32, code, opts) !== null;
+}
+
+/**
+ * Time step (counter) the code is valid for, or null. Callers that store the last used step
+ * can refuse a replayed code.
+ * @param {string} secretBase32
+ * @param {string} code
+ * @param {{ nowMs?: number }} [opts]
+ * @returns {number | null}
+ */
+export function totpMatchStep(secretBase32, code, opts = {}) {
   const normalized = String(code ?? "").replace(/\s/g, "");
-  if (!/^\d{6,8}$/.test(normalized)) return false;
+  if (!/^\d{6,8}$/.test(normalized)) return null;
   const six = normalized.slice(0, 6);
   const secret = decodeBase32(secretBase32);
-  if (!secret) return false;
+  if (!secret) return null;
   const nowMs = opts.nowMs ?? Date.now();
   const counter = Math.floor(nowMs / 1000 / STEP_SEC);
   const expected = Buffer.from(six);
   for (let i = -WINDOW; i <= WINDOW; i++) {
     const candidate = Buffer.from(hotp(secret, counter + i));
     if (candidate.length === expected.length && timingSafeEqual(candidate, expected)) {
-      return true;
+      return counter + i;
     }
   }
-  return false;
+  return null;
 }
 
 /**

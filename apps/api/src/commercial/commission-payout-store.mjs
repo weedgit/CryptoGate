@@ -220,6 +220,9 @@ export async function upsertIssuedCommissionInvoiceRow(input) {
            tree_snapshot = $11::jsonb,
            updated_at = now()
        WHERE id = $1
+         -- Re-checked here: a payment marked between the read above and this write must not
+         -- be reset to issued (review: commission payout race).
+         AND payout_status NOT IN ('paid', 'settled')
        RETURNING ${SELECT}`,
       [
         cur.id,
@@ -235,7 +238,7 @@ export async function upsertIssuedCommissionInvoiceRow(input) {
         JSON.stringify(input.treeSnapshot ?? null),
       ],
     );
-    return rows[0];
+    return rows[0] ?? null;
   }
 
   const { rows } = await getPool().query(

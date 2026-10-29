@@ -12,9 +12,11 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadSeedEnv } from "./seed-env.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadSeedEnv();
+await guardSeedDatabase();
 const steps = [
   "seed-local.mjs",
   "seed-load-orgs.mjs",

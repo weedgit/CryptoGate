@@ -11,6 +11,7 @@ import { getPool } from "../src/db/pool.mjs";
 import { insertMembership } from "../src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../src/orgs/org-store.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   closePool,
   hasPostgres,
@@ -86,6 +87,7 @@ describePg("org overview metrics (Postgres integration)", () => {
     const u = await createUser({ email: `${prefix}@ovm.test`, password: "OverviewTest12!" });
     ownerId = u.id;
     await insertMembership({ orgId: platform.id, userId: u.id, role: "owner" });
+    await enrollTestMfa(u.id);
     tokens.platform = (await createSession({ userId: u.id, mfaVerified: true })).token;
 
     // More than the old 200-row overview cap, so a capped list would undercount.

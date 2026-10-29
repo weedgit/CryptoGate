@@ -80,9 +80,9 @@ npx pnpm@9.15.0 --filter @paymentgate/payment-page dev
 # → /pos/                           cashier POS wireframes (DEMO; use cashier-apk)
 ```
 
-Demo login (minimal): run `node scripts/seed-local.mjs` — `own.platform@paymentgate.io` / `User1234567890!` (platform owner only).
+Demo login (minimal): run `node scripts/seed-local.mjs` — `own.platform@paymentgate.io` with the seed password in `scripts/seed-constants.mjs` (platform owner only). Seeds refuse the deployed database unless `SEED_CONFIRM_DATABASE=<name>` is set; never run them against production.
 
-**Kevin UAT (real TRON Nile wallets):** run `node scripts/seed-uat.mjs` for a clean stack, or `node scripts/seed-kevin-uat.mjs` after `seed-local` to add the Kevin agent → merchant (+ optional site) tree without bulk load data. Password for all UAT users: `User1234567890!`. Wallet map: `scripts/seed-nile-wallets.mjs`. For the agent Commissions page, `node scripts/seed-kevin-agent-commissions.mjs` adds Kevin Agent's monthly commission invoices (issued, sent, received; safe to re-run).
+**Kevin UAT (real TRON Nile wallets):** run `node scripts/seed-uat.mjs` for a clean stack, or `node scripts/seed-kevin-uat.mjs` after `seed-local` to add the Kevin agent → merchant (+ optional site) tree without bulk load data. Password for all UAT users: the seed password in `scripts/seed-constants.mjs`. Wallet map: `scripts/seed-nile-wallets.mjs`. For the agent Commissions page, `node scripts/seed-kevin-agent-commissions.mjs` adds Kevin Agent's monthly commission invoices (issued, sent, received; safe to re-run).
 
 Portals: http://127.0.0.1:5174/{platform,agent,merchant}
 

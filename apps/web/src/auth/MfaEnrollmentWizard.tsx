@@ -6,6 +6,8 @@ import { AuthToast } from "./AuthToast";
 import { CopyIcon } from "./LoginIcons";
 import { MfaCodeInput } from "./MfaCodeInput";
 import { formatManualSecret } from "./passwordPolicy";
+// Drawn locally: the otpauth URL carries the TOTP secret and must not go to a QR web service.
+import { PaymentQrCanvas } from "../shared/PaymentQrCanvas";
 
 type Props = {
   onComplete: () => void;
@@ -106,9 +108,6 @@ export function MfaEnrollmentWizard({
     }
   }
 
-  const qrSrc = otpauthUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(otpauthUrl)}`
-    : "";
 
   if (variant === "modal") {
     return createPortal(
@@ -176,8 +175,8 @@ export function MfaEnrollmentWizard({
                 Scan the QR code with Google Authenticator, 1Password or another authenticator app.
               </p>
               <div className="mfa-setup__qr">
-                {qrSrc ? (
-                  <img src={qrSrc} width={180} height={180} alt="Authenticator QR code" />
+                {otpauthUrl ? (
+                  <PaymentQrCanvas payload={otpauthUrl} size={180} alt="Authenticator QR code" />
                 ) : null}
               </div>
               <div className="mfa-setup__secret">
@@ -287,8 +286,8 @@ export function MfaEnrollmentWizard({
           </div>
 
           <div className="mfa-enroll-qr">
-            {qrSrc ? (
-              <img src={qrSrc} width={180} height={180} alt="Authenticator QR code" />
+            {otpauthUrl ? (
+              <PaymentQrCanvas payload={otpauthUrl} size={180} alt="Authenticator QR code" />
             ) : null}
           </div>
 

@@ -9,6 +9,7 @@ import {
   updateWebhookDeliveryResult,
 } from "./webhook-store.mjs";
 import { notifyWebhookFailure } from "../notifications/notify.mjs";
+import { postWebhook } from "./webhook-egress.mjs";
 
 /**
  * POST one delivery. Inject `fetchImpl` / `updateResult` in tests.
@@ -30,7 +31,16 @@ import { notifyWebhookFailure } from "../notifications/notify.mjs";
  * }} [opts]
  */
 export async function deliverWebhookOnce(row, opts = {}) {
-  const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
+  // Production path: public hosts only, no redirects (H11). Tests may inject fetchImpl.
+  const fetchImpl =
+    opts.fetchImpl ??
+    ((url, init) =>
+      postWebhook(url, {
+        headers: init.headers,
+        body: init.body,
+        signal: init.signal,
+        allowLocalHttp: process.env.NODE_ENV !== "production",
+      }));
   const updateResult = opts.updateResult ?? updateWebhookDeliveryResult;
   const nowMs = opts.nowMs ?? Date.now();
   const headers = webhookOutboundHeaders({
@@ -64,6 +74,7 @@ export async function deliverWebhookOnce(row, opts = {}) {
   if (isWebhookDeliverySuccess(httpStatus)) {
     await updateResult({
       deliveryId: row.id,
+      claimedAttempt: row.attempt,
       status: "success",
       attempt: row.attempt,
       httpStatus,
@@ -76,6 +87,7 @@ export async function deliverWebhookOnce(row, opts = {}) {
   if (next.status === "failed") {
     await updateResult({
       deliveryId: row.id,
+      claimedAttempt: row.attempt,
       status: "failed",
       attempt: row.attempt,
       httpStatus,
@@ -95,6 +107,7 @@ export async function deliverWebhookOnce(row, opts = {}) {
 
   await updateResult({
     deliveryId: row.id,
+    claimedAttempt: row.attempt,
     status: "pending",
     attempt: next.attempt,
     httpStatus,

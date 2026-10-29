@@ -3,6 +3,7 @@ import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import {
   advanceNextInvoiceOn,
+  addMerchantServiceBillCredit,
   consumeMerchantServiceBillCredit,
   listMerchantsDueForRecurringInvoice,
 } from "../commercial/merchant-commercial-store.mjs";
@@ -96,21 +97,28 @@ export async function createRecurringBillForWindow(orgId, periodStart, invoiceOn
     opts.dueFrom ?? new Date(`${invoiceOn}T00:00:00.000Z`),
   );
 
-  let row = await insertServiceBill({
-    orgId,
-    periodStart,
-    periodEnd: estimate.periodEnd,
-    subscriptionAmount,
-    volumeFeeAmount,
-    totalAmount,
-    dueAt,
-    status: autoSend ? ServiceBillStatus.Issued : ServiceBillStatus.Draft,
-    tier: estimate.tier,
-    volumeFeePercent: estimate.volumeFeePercent,
-    billedVolumeUsd: estimate.billedVolumeUsd,
-    billKind: ServiceBillKind.Monthly,
-    sentAt: autoSend ? new Date().toISOString() : null,
-  });
+  let row;
+  try {
+    row = await insertServiceBill({
+      orgId,
+      periodStart,
+      periodEnd: estimate.periodEnd,
+      subscriptionAmount,
+      volumeFeeAmount,
+      totalAmount,
+      dueAt,
+      status: autoSend ? ServiceBillStatus.Issued : ServiceBillStatus.Draft,
+      tier: estimate.tier,
+      volumeFeePercent: estimate.volumeFeePercent,
+      billedVolumeUsd: estimate.billedVolumeUsd,
+      billKind: ServiceBillKind.Monthly,
+      sentAt: autoSend ? new Date().toISOString() : null,
+    });
+  } catch (err) {
+    // The bill was not created: give the merchant their credit back (M22).
+    if (creditAppliedUsd) await addMerchantServiceBillCredit(orgId, creditAppliedUsd);
+    throw err;
+  }
 
   if (waiver) {
     row = await closeMonthlyBillAsWaived(row, waiver);

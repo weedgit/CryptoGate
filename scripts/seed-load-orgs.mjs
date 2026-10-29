@@ -32,6 +32,7 @@ import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
 import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 import { loadSeedEnv } from "./seed-env.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const COUNT = 100;
 const PREFIX = "Load";
@@ -178,6 +179,7 @@ async function insertAudit(pool, { actorUserId, orgId, action, metadata, created
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);

@@ -16,6 +16,10 @@ import { assertPosPinPepperEnv } from "./auth/pos-pin-hash.mjs";
 
 assertWatchOnlyEnv();
 assertPosPinPepperEnv();
+// Dev conveniences must never reach production (review: settings that fail open).
+if (process.env.NODE_ENV === "production" && process.env.PASSWORD_RESET_EXPOSE_LINK === "true") {
+  throw new Error("PASSWORD_RESET_EXPOSE_LINK=true is not allowed when NODE_ENV=production");
+}
 
 /**
  * HTTP entry. Background: order expiry (M2-14), service bill overdue + daily
@@ -23,7 +27,8 @@ assertPosPinPepperEnv();
  * invoice CSV export jobs, order retention purge, audit hot→archive, FX rate refresh.
  */
 
-const host = process.env.API_HOST ?? "0.0.0.0";
+// Loopback by default: nginx is the only public entry (body-size and rate limits live there too).
+const host = process.env.API_HOST ?? "127.0.0.1";
 const port = Number(process.env.API_PORT ?? 3000);
 
 const server = createServer((req, res) => {

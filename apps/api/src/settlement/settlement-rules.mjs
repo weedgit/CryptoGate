@@ -1,4 +1,9 @@
-import { getAssetNetworkConfig, listAssetNetworkRegistry } from "@paymentgate/domain";
+import {
+  getAssetNetworkConfig,
+  isEvmNetwork,
+  listAssetNetworkRegistry,
+} from "@paymentgate/domain";
+import { toEip55Checksum } from "../mode-s/hd-derive.mjs";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
 
@@ -30,6 +35,38 @@ export function settlementAssetsForNetwork(network) {
   return listAssetNetworkRegistry()
     .filter((row) => row.enabled && row.network === network)
     .map((row) => row.asset);
+}
+
+/**
+ * Network-specific address checks. EVM: 0x + 40 hex; a mixed-case input must carry a valid
+ * EIP-55 checksum (typo guard); stored in checksummed form so every row for one wallet has
+ * the same spelling.
+ * @param {string} network
+ * @param {string} address trimmed
+ * @returns {{ ok: true, address: string } | { ok: false, status: number, code: string, message: string }}
+ */
+export function normalizeSettlementAddress(network, address) {
+  if (!isEvmNetwork(network)) return { ok: true, address };
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_address",
+      message: "Ethereum address must be 0x followed by 40 hex characters",
+    };
+  }
+  const checksummed = toEip55Checksum(address);
+  const body = address.slice(2);
+  const mixedCase = body !== body.toLowerCase() && body !== body.toUpperCase();
+  if (mixedCase && checksummed !== address) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_address",
+      message: "Ethereum address checksum does not match (check for a typo)",
+    };
+  }
+  return { ok: true, address: checksummed };
 }
 
 /**
@@ -78,9 +115,18 @@ export function validateSettlementBody(body) {
     };
   }
 
+  const normalized = normalizeSettlementAddress(network, address);
+  if (!normalized.ok) return normalized;
+
   return {
     ok: true,
-    parsed: { asset: asset || assets[0], assets, network, address, mfaCode },
+    parsed: {
+      asset: asset || assets[0],
+      assets,
+      network,
+      address: normalized.address,
+      mfaCode,
+    },
   };
 }
 

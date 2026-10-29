@@ -16,7 +16,7 @@ describe("sanitizeAuditMetadata", () => {
     assert.equal(out.orgCount, 1);
   });
 
-  it("keeps initialSignIn for agent invite recovery but strips password-like keys", () => {
+  it("strips initialSignIn and password-like keys (C2)", () => {
     const out = sanitizeAuditMetadata({
       email: "owner@agent.io",
       provisioned: true,
@@ -24,7 +24,9 @@ describe("sanitizeAuditMetadata", () => {
       temporaryPassword: "must-not-persist",
       inviteToken: "must-not-persist",
     });
-    assert.equal(out.initialSignIn, "abc123XYZ9aA!");
+    assert.equal(out.email, "owner@agent.io");
+    assert.equal(out.provisioned, true);
+    assert.equal(out.initialSignIn, undefined);
     assert.equal(out.temporaryPassword, undefined);
     assert.equal(out.inviteToken, undefined);
   });

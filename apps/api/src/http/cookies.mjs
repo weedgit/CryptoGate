@@ -47,7 +47,11 @@ export function sessionCookie(token, opts = {}) {
     "SameSite=Lax",
     `Max-Age=${maxAgeSec}`,
   ];
-  if (process.env.SESSION_COOKIE_SECURE === "true") {
+  // Secure by default in production; only an explicit SESSION_COOKIE_SECURE=false turns it off.
+  const secure =
+    process.env.SESSION_COOKIE_SECURE === "true" ||
+    (process.env.NODE_ENV === "production" && process.env.SESSION_COOKIE_SECURE !== "false");
+  if (secure) {
     parts.push("Secure");
   }
   return parts.join("; ");

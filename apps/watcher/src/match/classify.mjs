@@ -2,6 +2,7 @@
  * Watcher-side anomaly classification (M3-43 / M3-44).
  * Pure helpers — matching still owns amount/memo collisions.
  */
+import { sameAddress } from "@paymentgate/domain";
 import { isTransferEligibleForOrder } from "@paymentgate/matching";
 
 /**
@@ -26,14 +27,14 @@ export function classifyWrongNetworkOrAsset(transfer, openOrders) {
   const to = transfer.toAddress.trim();
   if (!to) return null;
 
-  const sameAddress = openOrders.filter(
+  const atAddress = openOrders.filter(
     (o) =>
-      o.receiveAddress.trim() === to &&
+      sameAddress(transfer.network, o.receiveAddress, to) &&
       isTransferEligibleForOrder(transfer.blockTimestampMs, o.createdAt),
   );
-  if (sameAddress.length === 0) return null;
+  if (atAddress.length === 0) return null;
 
-  const wrong = sameAddress.filter(
+  const wrong = atAddress.filter(
     (o) => o.asset !== transfer.asset || o.network !== transfer.network,
   );
   if (wrong.length === 0) return null;

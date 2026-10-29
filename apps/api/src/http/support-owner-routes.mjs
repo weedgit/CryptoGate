@@ -2,6 +2,7 @@ import { readJsonBody, sendError, sendJson } from "./json.mjs";
 import { isValidTimeZone } from "../dashboard/dashboard-range.mjs";
 import { requireCaller } from "./require-caller.mjs";
 import { normalizePhone } from "../auth/contact-otp-store.mjs";
+import { revokeAllSessionsForUser } from "../auth/sessions.mjs";
 import {
   clearUserPhone,
   findUserById,
@@ -13,12 +14,14 @@ import {
   updateUserProfile,
 } from "../auth/users.mjs";
 import {
+  countOrgMemberships,
   countOwners,
   findMembership,
   listMembershipsForOrg,
   updateMembershipRole,
 } from "../orgs/membership-store.mjs";
 import {
+  canChangeOwnerSeat,
   isLastOwnerDemotion,
   roleAllowedOnOrg,
   canManageTeam,
@@ -342,13 +345,16 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
 
   const wantsVerificationChange =
     typeof body?.emailVerified === "boolean" || typeof body?.phoneVerified === "boolean";
-  const supportEdit = canSupportEditMemberAccount(caller);
+  const supportEdit = canSupportEditMemberAccount(caller, {
+    targetRole: membership.role,
+    orgType: org.type,
+  });
   if (wantsVerificationChange && !supportEdit) {
     sendError(
       res,
       403,
       "forbidden",
-      "Only Platform Owner or Administrator may change verification status",
+      "Only Platform Owner or Administrator may change verification status (Owners and platform staff: Platform Owner only)",
     );
     return;
   }
@@ -359,6 +365,26 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
     return;
   }
   if (nextRole && nextRole !== membership.role) {
+    if (caller.userId === userId) {
+      sendError(res, 403, "cannot_change_own_role", "You cannot change your own role");
+      return;
+    }
+    if (
+      (membership.role === "owner" || nextRole === "owner") &&
+      !canChangeOwnerSeat({
+        platformOwner: caller.platformOwner,
+        roleOnOrg: orgRole,
+        memberCount: await countOrgMemberships(orgId),
+      })
+    ) {
+      sendError(
+        res,
+        403,
+        "owner_seat_forbidden",
+        "Only this org's Owner or the Platform Owner may add or remove an Owner",
+      );
+      return;
+    }
     const owners = await countOwners(orgId);
     if (
       isLastOwnerDemotion({
@@ -424,7 +450,7 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
         res,
         403,
         "forbidden",
-        "Only Platform Owner or Administrator may change a member's email, phone, or password",
+        "Only Platform Owner or Administrator may change a member's email, phone, or password (Owners and platform staff: Platform Owner only)",
       );
       return;
     }
@@ -441,6 +467,7 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
 
     if (typeof body?.email === "string" && body.email.trim()) {
       await setUserEmail(userId, body.email);
+      await revokeAllSessionsForUser(userId);
     }
 
     if (nextPhone === null) {
@@ -450,7 +477,9 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
     }
 
     if (nextPassword) {
-      await updateUserPassword(userId, nextPassword);
+      // Staff know this password: the member must replace it, and old sessions end (H9).
+      await updateUserPassword(userId, nextPassword, { mustChange: true });
+      await revokeAllSessionsForUser(userId);
     }
   } catch (err) {
     const code = err && err.code ? String(err.code) : "invalid_request";

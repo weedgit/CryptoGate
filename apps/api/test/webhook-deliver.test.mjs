@@ -22,6 +22,11 @@ describe("webhook delivery rules (M3-14)", () => {
     });
     const expected = createHmac("sha256", secret).update(body, "utf8").digest("hex");
     assert.equal(headers["X-PaymentGate-Signature"], expected);
+    // v2 binds timestamp and event id to the body (M21).
+    const v2 = createHmac("sha256", secret)
+      .update(`${headers["X-PaymentGate-Timestamp"]}.${headers["X-PaymentGate-Event-Id"]}.${body}`, "utf8")
+      .digest("hex");
+    assert.equal(headers["X-PaymentGate-Signature-V2"], v2);
     assert.equal(headers["X-PaymentGate-Timestamp"], "1710000000");
     assert.equal(headers["X-PaymentGate-Event-Id"], "e1");
     assert.equal(headers["X-PaymentGate-Delivery-Id"], "d1");

@@ -182,9 +182,16 @@ describe("@paymentgate/chain-clients/ethereum JSON-RPC live (mocked)", () => {
                   toTopic,
                 ],
                 data: "0x000000000000000000000000000000000000000000000000000000000f4240",
+                blockNumber: "0xfe",
               },
             ],
           }),
+        );
+      }
+      if (body.method === "eth_getBlockByNumber") {
+        assert.equal(body.params[0], "0xfe");
+        return new Response(
+          JSON.stringify({ jsonrpc: "2.0", id: 1, result: { timestamp: "0x6553f100" } }),
         );
       }
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: null }));
@@ -198,6 +205,8 @@ describe("@paymentgate/chain-clients/ethereum JSON-RPC live (mocked)", () => {
     assert.equal(result.transfers.length, 1);
     assert.equal(result.transfers[0].amount, "1");
     assert.equal(result.transfers[0].txHash, "0xdeadbeef");
+    // H3: block time travels with the transfer so pre-order transfers cannot bind.
+    assert.equal(result.transfers[0].blockTimestampMs, 0x6553f100 * 1000);
   });
 
   it("getTransactionConfirmations uses receipt + head block", async () => {
@@ -208,7 +217,7 @@ describe("@paymentgate/chain-clients/ethereum JSON-RPC live (mocked)", () => {
           JSON.stringify({
             jsonrpc: "2.0",
             id: 1,
-            result: { blockNumber: "0x64" },
+            result: { blockNumber: "0x64", status: "0x1" },
           }),
         );
       }
@@ -223,5 +232,24 @@ describe("@paymentgate/chain-clients/ethereum JSON-RPC live (mocked)", () => {
       fetch: /** @type {typeof fetch} */ (fetchMock),
     });
     assert.equal(n, 11);
+  });
+
+  it("reverted receipt is reported as failed, never confirmed (H4)", async () => {
+    const { getTransactionConfirmationState } = await import("../ethereum/index.mjs");
+    const fetchMock = async (_url, init) => {
+      const body = JSON.parse(String(init.body));
+      if (body.method === "eth_getTransactionReceipt") {
+        return new Response(
+          JSON.stringify({ jsonrpc: "2.0", id: 1, result: { blockNumber: "0x64", status: "0x0" } }),
+        );
+      }
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0x6e" }));
+    };
+    const state = await getTransactionConfirmationState({
+      txHash: "0xabc",
+      fetch: /** @type {typeof fetch} */ (fetchMock),
+    });
+    assert.equal(state.presence, "failed");
+    assert.equal(state.failureReason, "tx_failed");
   });
 });

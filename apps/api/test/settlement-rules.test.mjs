@@ -27,6 +27,33 @@ describe("settlement rules", () => {
     assert.equal(r.parsed.mfaCode, "123456");
   });
 
+  it("checksums Ethereum addresses and rejects bad checksums (H1)", () => {
+    const checksummed = "0x52908400098527886E0F7030069857D2E4169EE7";
+    const lower = validateSettlementBody({
+      network: "ethereum",
+      address: checksummed.toLowerCase(),
+      mfaCode: "123456",
+    });
+    assert.equal(lower.ok, true);
+    assert.equal(lower.parsed.address, checksummed);
+
+    const typo = validateSettlementBody({
+      network: "ethereum",
+      address: "0x52908400098527886E0F7030069857D2E4169Ee7",
+      mfaCode: "123456",
+    });
+    assert.equal(typo.ok, false);
+    assert.equal(typo.code, "invalid_address");
+
+    const short = validateSettlementBody({
+      network: "ethereum",
+      address: "0x1234",
+      mfaCode: "123456",
+    });
+    assert.equal(short.ok, false);
+    assert.equal(short.code, "invalid_address");
+  });
+
   it("requires mfaCode for settlement changes", () => {
     const r = validateSettlementBody({
       asset: "USDT",
@@ -52,7 +79,7 @@ describe("settlement rules", () => {
     const r = validateSettlementBody({
       asset: "USDT",
       network: "not_a_network",
-      address: "0xabc1234567890123456789012345678901234",
+      address: "0xabc1234567890123456789012345678901234567",
       mfaCode: "123456",
     });
     assert.equal(r.ok, false);
@@ -64,7 +91,7 @@ describe("settlement rules", () => {
     const r = validateSettlementBody({
       asset: "USDT",
       network: "ethereum",
-      address: "0xabc1234567890123456789012345678901234",
+      address: "0xabc1234567890123456789012345678901234567",
       mfaCode: "123456",
     });
     assert.equal(r.ok, true);
@@ -82,7 +109,7 @@ describe("settlement rules", () => {
     const eth = validateSettlementBody({
       asset: "USDT",
       network: "ethereum",
-      address: "0xabc1234567890123456789012345678901234",
+      address: "0xabc1234567890123456789012345678901234567",
       mfaCode: "123456",
     });
     assert.equal(eth.ok, true);

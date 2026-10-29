@@ -201,47 +201,43 @@ export async function addMerchantServiceBillCredit(orgId, addUsd) {
 }
 
 /**
- * Consume credit up to bill total.
+ * Consume credit up to bill total, in one locked statement: two bill runs reading the same
+ * balance both spent it (review M22). Callers return it with addMerchantServiceBillCredit
+ * when the bill is not created or is cancelled.
  * @param {string} orgId
  * @param {string} totalAmount
  */
 export async function consumeMerchantServiceBillCredit(orgId, totalAmount) {
-  const current = await findMerchantCommercial(orgId);
-  const creditRaw = String(current?.service_bill_credit_usd ?? "0.00");
+  const none = { creditApplied: "0.00", remainingCredit: "0.00", newTotal: totalAmount };
   const { isUsdAmount } = await import("../service-bills/service-bill-rules.mjs");
-  if (
-    !current ||
-    !isUsdAmount(creditRaw) ||
-    creditRaw === "0" ||
-    creditRaw === "0.00"
-  ) {
-    return {
-      creditApplied: "0.00",
-      remainingCredit: "0.00",
-      newTotal: totalAmount,
-    };
-  }
-  const toCents = (s) => {
-    const [w, f = ""] = s.split(".");
-    return BigInt(w) * 100n + BigInt((f + "00").slice(0, 2));
-  };
-  const toUsd = (c) => {
-    const w = c / 100n;
-    const f = (c % 100n).toString().padStart(2, "0");
-    return `${w}.${f}`;
-  };
-  const totalC = toCents(totalAmount);
-  const creditC = toCents(creditRaw);
-  const appliedC = creditC > totalC ? totalC : creditC;
-  const remainingC = creditC - appliedC;
-  const newTotal = toUsd(totalC - appliedC);
-  await updateMerchantBillingFlags(orgId, {
-    serviceBillCreditUsd: toUsd(remainingC),
-  });
+  if (!isUsdAmount(String(totalAmount))) return none;
+  const { rows } = await getPool().query(
+    `WITH cur AS (
+       SELECT org_id,
+              CASE WHEN service_bill_credit_usd ~ '^[0-9]+(\\.[0-9]{1,2})?$'
+                   THEN service_bill_credit_usd::numeric ELSE 0 END AS credit
+       FROM merchant_commercial
+       WHERE org_id = $1
+       FOR UPDATE
+     ),
+     spend AS (
+       SELECT org_id, credit, LEAST(credit, $2::numeric) AS applied FROM cur
+     )
+     UPDATE merchant_commercial m
+     SET service_bill_credit_usd = to_char(spend.credit - spend.applied, 'FM999999999990.00')
+     FROM spend
+     WHERE m.org_id = spend.org_id AND spend.applied > 0
+     RETURNING to_char(spend.applied, 'FM999999999990.00') AS applied,
+               to_char(spend.credit - spend.applied, 'FM999999999990.00') AS remaining,
+               to_char($2::numeric - spend.applied, 'FM999999999990.00') AS new_total`,
+    [orgId, String(totalAmount)],
+  );
+  const row = rows[0];
+  if (!row) return none;
   return {
-    creditApplied: toUsd(appliedC),
-    remainingCredit: toUsd(remainingC),
-    newTotal,
+    creditApplied: row.applied,
+    remainingCredit: row.remaining,
+    newTotal: row.new_total,
   };
 }
 

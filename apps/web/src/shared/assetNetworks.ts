@@ -7,6 +7,7 @@ import {
   resolveChainEnvironment,
   ChainEnvironment,
   resolveHdDerivationFamily,
+  supportsModeSHdDerivation,
 } from "@paymentgate/domain";
 
 export type PairAvailability = "live" | "catalogued";
@@ -145,11 +146,16 @@ export function displayNetworkForPair(asset: string, network: string): string {
   return findRegistryRow(asset, network)?.displayNetwork ?? networkShortLabel(network);
 }
 
+/** True when the API accepts an xPub (Mode S HD addresses) for this network. */
+export function xpubSupportedForNetwork(network: string): boolean {
+  return supportsModeSHdDerivation(network);
+}
+
 /** Merchant-facing hint for watch-only key material on Mode S xPub registration. */
 export function xpubMaterialHint(network: string): string {
   switch (resolveHdDerivationFamily(network)) {
     case "solana":
-      return "Solana extended public key (128-char hex) or master public key (base58). Uses SLIP-0010 path 0/{index}.";
+      return "Smart address (Mode S) is not available on Solana: no standard Solana wallet can derive or spend from per-order addresses.";
     case "evm":
       return "Watch-only BIP32 xPub at your Ethereum account level (coin type 60). Path 0/{index} → 0x address.";
     case "tron":

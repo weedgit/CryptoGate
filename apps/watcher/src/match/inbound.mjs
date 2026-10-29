@@ -2,8 +2,10 @@
  * Map inbound transfers → matchTransaction → DB updates (M3-41 / M3-43 / M3-44).
  * Matching stays in @paymentgate/matching; watcher never imports apps/api.
  */
+import { sameAddress } from "@paymentgate/domain";
 import { matchTransaction } from "@paymentgate/matching";
 import { classifyWrongNetworkOrAsset } from "./classify.mjs";
+import { transferOutputKey } from "../orders/order-store.mjs";
 
 /**
  * @typedef {{
@@ -28,6 +30,7 @@ import { classifyWrongNetworkOrAsset } from "./classify.mjs";
  *   network: string,
  *   memoOrTag?: string | null,
  *   expiresAt?: string,
+ *   underpayTolerance?: string,
  *   status?: string,
  *   createdAt?: string,
  * }} WatcherOrderRow
@@ -50,9 +53,9 @@ export async function matchInboundTransfer(input) {
 
   const atAddressExact = input.openOrders.filter(
     (o) =>
-      o.receiveAddress.trim() === to &&
       o.asset === transfer.asset &&
-      o.network === transfer.network,
+      o.network === transfer.network &&
+      sameAddress(transfer.network, o.receiveAddress, to),
   );
 
   if (atAddressExact.length === 0) {
@@ -76,9 +79,16 @@ export async function matchInboundTransfer(input) {
     };
   }
 
+  // Orders that already hold a payment (verifying / confirmed / anomaly) are not offered again:
+  // a follow-up payment bound to them was dropped as tx_hash_conflict, or turned a fresh order
+  // of the same amount into a collision (review M6). Rows without a status are legacy callers.
+  const awaitingPayment = atAddressExact.filter(
+    (o) => !o.status || o.status === "pending_payment" || o.status === "expired",
+  );
+
   /** @type {Map<string, WatcherOrderRow[]>} */
   const byMode = new Map();
-  for (const order of atAddressExact) {
+  for (const order of awaitingPayment) {
     const mode = order.matchingMode;
     const list = byMode.get(mode) ?? [];
     list.push(order);
@@ -99,7 +109,7 @@ export async function matchInboundTransfer(input) {
       network: o.network,
       memoOrTag: o.memoOrTag,
       expiresAt: o.expiresAt,
-      underpayTolerance: "0",
+      underpayTolerance: o.underpayTolerance ?? "0",
       createdAt: o.createdAt,
     }));
 
@@ -149,7 +159,7 @@ export async function processTransferBatch(input) {
   const known = input.knownTxHashes ?? new Set();
   const outcomes = [];
   for (const transfer of input.transfers) {
-    if (known.has(transfer.txHash?.trim())) {
+    if (known.has(transferOutputKey(transfer.network, transfer.txHash, transfer.toAddress))) {
       outcomes.push({
         txHash: transfer.txHash,
         skipped: true,

@@ -62,7 +62,8 @@ async function resolveWebhookHealth(opts = {}) {
   if (snap.lastError) {
     return {
       status: "degraded",
-      detail: `Last tick error: ${snap.lastError}`,
+      // /health is public: the raw error (hosts, SQL, URLs) stays in the server log.
+      detail: "Last delivery tick failed",
       lastTickAt,
     };
   }

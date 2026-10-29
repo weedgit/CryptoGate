@@ -61,3 +61,16 @@ describe("agent commission invoice rules", () => {
     assert.equal(shouldCreateCommissionInvoice(15), true);
   });
 });
+
+describe("commission money math in cents (M24)", () => {
+  it("sums many bills without float drift and rounds half-up", async () => {
+    const { usdToCents } = await import("../src/commercial/commission-invoice-generate.mjs");
+    let cents = 0;
+    for (let i = 0; i < 1000; i += 1) cents += usdToCents("0.10");
+    assert.equal(cents, 10_000);
+    assert.equal(computeCommissionAmount(0.1 + 0.2, "10"), 0.03);
+    assert.equal(computeCommissionAmount(1000.05, "12.5"), 125.01);
+    assert.equal(computeCommissionAmount(100, "0"), 0);
+  });
+});
+

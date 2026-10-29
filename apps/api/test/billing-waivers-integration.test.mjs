@@ -17,6 +17,7 @@ import {
 import { createRecurringInvoiceForMerchant } from "../src/service-bills/daily-invoice.mjs";
 import { findFeeWaiver, upsertFeeWaiver } from "../src/service-bills/billing-waiver-store.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   closePool,
   hasPostgres,
@@ -75,6 +76,7 @@ describePg("billing waive lists (Postgres integration)", () => {
     platformId = platform.id;
     const u = await createUser({ email: `${prefix}@bw.test`, password: "WaiverTest12!" });
     await insertMembership({ orgId: platform.id, userId: u.id, role: "owner" });
+    await enrollTestMfa(u.id);
     token = (await createSession({ userId: u.id, mfaVerified: true })).token;
     ({ server, base } = await startTestServer());
   });

@@ -1,7 +1,11 @@
 import { FormEvent, useState } from "react";
 import { MfaStepUpGate } from "../../auth/MfaStepUpGate";
 import { AnimatedText } from "../../shared/AnimatedText";
-import { displayNetworkForPair, xpubMaterialHint } from "../../shared/assetNetworks";
+import {
+  displayNetworkForPair,
+  xpubMaterialHint,
+  xpubSupportedForNetwork,
+} from "../../shared/assetNetworks";
 import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
 import { SETTLEMENT_ICONS } from "../SettlementSectionHead";
 import { SETTLEMENT_HELP } from "./settlementHelp";
@@ -207,12 +211,10 @@ export function HdPoolPanel({
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 required
-                disabled={saving || !picker.live}
+                disabled={saving || !picker.live || !xpubSupportedForNetwork(picker.network)}
                 spellCheck={false}
                 autoComplete="off"
-                placeholder={
-                  picker.live ? "xpub… / zpub… / ed25519 pubkey…" : "Select a live pair"
-                }
+                placeholder={picker.live ? "xpub… / zpub…" : "Select a live pair"}
               />
             </label>
           </div>
@@ -220,7 +222,7 @@ export function HdPoolPanel({
             <button
               type="submit"
               className="btn-primary plat-settings__submit"
-              disabled={saving || !picker.live}
+              disabled={saving || !picker.live || !xpubSupportedForNetwork(picker.network)}
             >
               Save xPub
             </button>

@@ -1,3 +1,6 @@
+import { getAssetNetworkConfig } from "@paymentgate/domain";
+import { majorToMinor } from "@paymentgate/matching";
+import { sameAddressSql } from "../db/address-sql.mjs";
 import { getPool } from "../db/pool.mjs";
 import { toPaymentOrder } from "./order-map.mjs";
 import { appendPaymentOrderScope } from "./order-scope-sql.mjs";
@@ -311,6 +314,32 @@ function excludeIdOf(query) {
   return query.excludeOrderId ?? null;
 }
 
+/**
+ * Matching treats amounts within the dust floor as the same payment, so create-time
+ * same-amount checks must too (review M3).
+ * @param {{ asset: string, network: string }} query
+ */
+function dustFloorOf(query) {
+  return getAssetNetworkConfig(query.asset, query.network)?.dustFloor ?? "0";
+}
+
+/**
+ * Base units of the amount the payer must send. Derived from the stored payable, not the
+ * quote: Mode C bumps the payable after quoting, and integrators that use base units asked
+ * for the pre-bump amount (review M12).
+ * @param {string} payableAmount major units
+ * @param {number | null | undefined} decimals
+ * @param {string | null | undefined} fallback quote value when decimals are unknown
+ */
+function payableBaseUnits(payableAmount, decimals, fallback) {
+  if (!Number.isInteger(decimals) || decimals < 0) return fallback ?? null;
+  try {
+    return majorToMinor(String(payableAmount).trim(), decimals).toString();
+  } catch {
+    return fallback ?? null;
+  }
+}
+
 export async function listReservedPayableAmounts(client, query) {
   const ids = merchantIdsOf(query);
   const { rows } = await client.query(
@@ -319,7 +348,7 @@ export async function listReservedPayableAmounts(client, query) {
      WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
-       AND receive_address = $4
+       AND ${sameAddressSql("receive_address", "$4", query.network)}
        AND status = ANY($5::text[])
        AND ($6::uuid IS NULL OR id <> $6::uuid)`,
     [
@@ -353,7 +382,7 @@ export async function listReservedMemoOrTags(client, query) {
      WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
-       AND receive_address = $4
+       AND ${sameAddressSql("receive_address", "$4", query.network)}
        AND memo_or_tag IS NOT NULL
        AND status = ANY($5::text[])
        AND ($6::uuid IS NULL OR id <> $6::uuid)`,
@@ -393,8 +422,8 @@ export async function findModeBSameAmountCreateConflict(client, query) {
      WHERE o.org_id = ANY($1::uuid[])
        AND o.asset = $2
        AND o.network = $3
-       AND o.receive_address = $4
-       AND o.payable_amount::numeric = $5::numeric
+       AND ${sameAddressSql("o.receive_address", "$4", query.network)}
+       AND abs(o.payable_amount::numeric - $5::numeric) <= $8::numeric
        AND o.status = ANY($6::text[])
        AND ($7::uuid IS NULL OR o.id <> $7::uuid)
      ORDER BY o.created_at ASC
@@ -407,6 +436,7 @@ export async function findModeBSameAmountCreateConflict(client, query) {
       query.payableAmount,
       [...query.statuses],
       excludeIdOf(query),
+      dustFloorOf(query),
     ],
   );
   const row = rows[0];
@@ -429,7 +459,8 @@ export async function findModeBSameAmountCreateConflict(client, query) {
 }
 
 /**
- * Mode S conflict port — any open order with the same payable (main or HD).
+ * Mode S conflict port — any open order with the same payable (main or HD). Compared as
+ * numbers within the dust floor: as text, "100" and "100.00" did not conflict (review M11).
  * @param {import("pg").Pool | import("pg").PoolClient} client
  * @param {{
  *   merchantId: string,
@@ -447,7 +478,7 @@ export async function hasModeSSameAmountConflict(client, query) {
      WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
-       AND payable_amount = $4
+       AND abs(payable_amount::numeric - $4::numeric) <= $7::numeric
        AND status = ANY($5::text[])
        AND ($6::uuid IS NULL OR id <> $6::uuid)
      LIMIT 1`,
@@ -458,6 +489,7 @@ export async function hasModeSSameAmountConflict(client, query) {
       query.payableAmount,
       [...query.statuses],
       excludeIdOf(query),
+      dustFloorOf(query),
     ],
   );
   return rows.length > 0;
@@ -538,7 +570,7 @@ export async function insertPaymentOrder(input, client) {
         input.rateSource ?? null,
         input.rateFetchedAt ?? null,
         input.quoteExpiresAt ?? null,
-        input.payAmountBaseUnits ?? null,
+        payableBaseUnits(input.payableAmount, input.assetDecimals, input.payAmountBaseUnits),
         input.assetDecimals ?? null,
         input.rateSources ? JSON.stringify(input.rateSources) : null,
         input.referenceRate ?? null,
@@ -663,7 +695,7 @@ export async function applyOrderRequote(client, orderId, input) {
       q.rateSource,
       q.rateFetchedAt,
       q.quoteExpiresAt,
-      q.payAmountBaseUnits,
+      payableBaseUnits(input.payableAmount, q.assetDecimals, q.payAmountBaseUnits),
       q.assetDecimals,
       q.rateSources ? JSON.stringify(q.rateSources) : null,
       q.referenceRate ?? null,
@@ -740,7 +772,7 @@ export async function findModeDSameMemoCreateConflict(client, query) {
      WHERE o.org_id = ANY($1::uuid[])
        AND o.asset = $2
        AND o.network = $3
-       AND o.receive_address = $4
+       AND ${sameAddressSql("o.receive_address", "$4", query.network)}
        AND o.memo_or_tag = $5
        AND o.status = ANY($6::text[])
        AND ($7::uuid IS NULL OR o.id <> $7::uuid)

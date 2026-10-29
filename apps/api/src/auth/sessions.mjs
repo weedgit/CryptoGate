@@ -7,6 +7,15 @@ export { hashSessionToken };
 export const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
+ * Absolute session lifetime: sliding refresh never keeps a session past this (H9).
+ * SESSION_MAX_AGE_HOURS overrides (default 24 h).
+ */
+export function sessionMaxAgeHours() {
+  const raw = Number(process.env.SESSION_MAX_AGE_HOURS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 24;
+}
+
+/**
  * @param {{ userId: string, ttlMs?: number, mfaVerified?: boolean, terminalId?: string | null }} input
  * @returns {Promise<{ token: string, sessionId: string, expiresAt: Date }>}
  */
@@ -53,8 +62,9 @@ export async function findActiveSessionByToken(token) {
      LEFT JOIN pos_terminals t ON t.id = s.terminal_id
      WHERE s.token_hash = $1
        AND s.revoked_at IS NULL
-       AND s.expires_at > now()`,
-    [tokenHash],
+       AND s.expires_at > now()
+       AND s.created_at > now() - make_interval(hours => $2)`,
+    [tokenHash, sessionMaxAgeHours()],
   );
   const row = rows[0];
   if (!row) return null;
@@ -99,17 +109,38 @@ export async function extendSessionByToken(token, opts = {}) {
   const expiresAt = new Date(Date.now() + ttlMs);
   const tokenHash = hashSessionToken(token);
   const pool = getPool();
-  const { rowCount } = await pool.query(
+  const { rows } = await pool.query(
     `UPDATE sessions
-     SET expires_at = $2
+     SET expires_at = LEAST($2::timestamptz, created_at + make_interval(hours => $3))
      WHERE token_hash = $1
        AND revoked_at IS NULL
        AND terminal_id IS NULL
-       AND expires_at > now()`,
-    [tokenHash, expiresAt.toISOString()],
+       AND expires_at > now()
+     RETURNING expires_at`,
+    [tokenHash, expiresAt.toISOString(), sessionMaxAgeHours()],
   );
-  if ((rowCount ?? 0) === 0) return null;
-  return expiresAt;
+  const capped = rows[0]?.expires_at;
+  if (!capped) return null;
+  return capped instanceof Date ? capped : new Date(String(capped));
+}
+
+/**
+ * Replace a session's token (e.g. once MFA passes) so a token seen before the step-up is
+ * useless afterwards (H9). The session keeps its id, expiry and creation time.
+ * @param {string} token
+ * @returns {Promise<string | null>} the new token, or null when the session is gone
+ */
+export async function rotateSessionToken(token) {
+  const next = randomBytes(32).toString("base64url");
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `UPDATE sessions
+     SET token_hash = $2
+     WHERE token_hash = $1
+       AND revoked_at IS NULL`,
+    [hashSessionToken(token), hashSessionToken(next)],
+  );
+  return (rowCount ?? 0) > 0 ? next : null;
 }
 
 /**
@@ -140,6 +171,23 @@ export async function revokeTerminalSessions(terminalId) {
      WHERE terminal_id = $1
        AND revoked_at IS NULL`,
     [terminalId],
+  );
+}
+
+/**
+ * Revoke a user's other sessions after a credential change made from `keepToken` (H9).
+ * @param {string} userId
+ * @param {string | null | undefined} keepToken
+ */
+export async function revokeOtherSessionsForUser(userId, keepToken) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE sessions
+     SET revoked_at = now()
+     WHERE user_id = $1
+       AND revoked_at IS NULL
+       AND ($2::text IS NULL OR token_hash <> $2)`,
+    [userId, keepToken ? hashSessionToken(keepToken) : null],
   );
 }
 

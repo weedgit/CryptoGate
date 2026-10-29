@@ -16,12 +16,19 @@ export const HD_POOL_RELEASE_STATUSES = [
 export const HD_DERIVE_MAX_ATTEMPTS = 32;
 
 /**
- * Must cover late-payment / anomaly window (Phase1 §2.5). Default 24h.
+ * Default cooldown before a released HD address is reused: the watcher's 7-day late-payment
+ * window plus a day. At 24 h, a reused address could credit a new order with the previous
+ * customer's late payment (review M14).
+ */
+export const DEFAULT_HD_POOL_COOLDOWN_MS = 8 * 24 * 60 * 60 * 1000;
+
+/**
+ * Must cover the late-payment / anomaly window (Phase1 §2.5). HD_POOL_COOLDOWN_MS overrides.
  */
 export function hdPoolCooldownMs() {
   const raw = process.env.HD_POOL_COOLDOWN_MS;
-  const n = raw ? Number(raw) : 86_400_000;
-  return Number.isFinite(n) && n >= 0 ? n : 86_400_000;
+  const n = raw ? Number(raw) : DEFAULT_HD_POOL_COOLDOWN_MS;
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_HD_POOL_COOLDOWN_MS;
 }
 
 /**

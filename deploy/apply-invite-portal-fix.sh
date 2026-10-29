@@ -9,9 +9,10 @@ API_ENV="/etc/paymentgate/api.env"
 patch_env_file() {
   local file="$1"
   [[ -f "$file" ]] || return 0
-  local tmp
-  tmp="$(mktemp)"
-  python3 - "$file" <<'PY' >"$tmp"
+  # Python rewrites the file in place. (It used to print into a temp file that then replaced
+  # the env file, leaving only "patched <path>" behind — review D4.)
+  cp -p "$file" "${file}.bak-$(date -u +%Y%m%dT%H%M%SZ)"
+  python3 - "$file" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -40,7 +41,6 @@ for k, v in updates.items():
 path.write_text(text, encoding="utf-8")
 print(f"patched {path}")
 PY
-  mv "$tmp" "$file"
   chmod 600 "$file" 2>/dev/null || true
 }
 

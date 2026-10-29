@@ -40,6 +40,20 @@ describe("team member email, phone, password, and verification support-edit", ()
       canSupportEditMemberAccount({ platformOperator: true, memberships: [] }),
       true,
     );
+    const admin = { platformOperator: true, platformOwner: false, memberships: [] };
+    assert.equal(canSupportEditMemberAccount(admin, { targetRole: "viewer", orgType: "merchant" }), true);
+    assert.equal(canSupportEditMemberAccount(admin, { targetRole: "owner", orgType: "merchant" }), false);
+    assert.equal(
+      canSupportEditMemberAccount(admin, { targetRole: "administrator", orgType: "platform" }),
+      false,
+    );
+    assert.equal(
+      canSupportEditMemberAccount(
+        { platformOperator: true, platformOwner: true, memberships: [] },
+        { targetRole: "owner", orgType: "merchant" },
+      ),
+      true,
+    );
     for (const orgType of ["merchant", "agent", "merchant_site"]) {
       assert.equal(
         canSupportEditMemberAccount({

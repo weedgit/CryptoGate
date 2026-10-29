@@ -35,8 +35,10 @@
  */
 import { randomUUID } from "node:crypto";
 import { loadSeedEnv } from "./seed-env.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 loadSeedEnv();
+await guardSeedDatabase();
 
 const { closePool, getPool } = await import("../apps/api/src/db/pool.mjs");
 const { roundUsd, volumeFeeUsd } = await import(

@@ -9,6 +9,7 @@ import {
   NetworkId,
   OrderStatus,
   getAssetNetworkConfig,
+  sameAddress,
   type AssetCode as AssetCodeType,
   type AssetNetworkConfig,
   type NetworkId as NetworkIdType,
@@ -188,10 +189,6 @@ export async function assignModeD(input: AssignInput): Promise<AssignResult> {
   return assignModeDForConfig(input, config);
 }
 
-function addressesEqual(a: string, b: string): boolean {
-  return a.trim() === b.trim();
-}
-
 function isExpired(order: MatchCandidateOrder, nowMs: number): boolean {
   if (!order.expiresAt) return false;
   const exp = Date.parse(order.expiresAt);
@@ -250,9 +247,9 @@ export async function matchModeDForConfig(
 
   const scoped = input.candidates.filter(
     (o) =>
-      addressesEqual(o.receiveAddress, toAddress) &&
       o.asset === input.asset &&
-      o.network === input.network,
+      o.network === input.network &&
+      sameAddress(input.network, o.receiveAddress, toAddress),
   );
 
   if (scoped.length === 0) {
@@ -273,13 +270,28 @@ export async function matchModeDForConfig(
     };
   }
 
-  const unexpired = eligible.filter((o) => !isExpired(o, nowMs));
-  const expired = eligible.filter((o) => isExpired(o, nowMs));
+  // Expiry is judged when the payment was mined, not when the watcher saw it (review M2).
+  const paidAtMs =
+    input.transferAtMs !== undefined && Number.isFinite(input.transferAtMs)
+      ? input.transferAtMs
+      : nowMs;
+  const unexpired = eligible.filter((o) => !isExpired(o, paidAtMs));
+  const expired = eligible.filter((o) => isExpired(o, paidAtMs));
 
   if (unexpired.length === 0) {
+    // Only the expired order this memo names is late; others at the address are untouched (M2).
+    const named = txMemo
+      ? expired.filter((o) => normalizeMemoOrTag(o.memoOrTag) === txMemo)
+      : [];
+    if (named.length === 0) {
+      return {
+        status: OrderStatus.PendingPayment,
+        reason: "no_open_order_at_address",
+      };
+    }
     return {
       status: OrderStatus.PaymentAnomaly,
-      orderIds: expired.map((o) => o.orderId),
+      orderIds: named.map((o) => o.orderId),
       reason: "late_payment_after_expiry",
     };
   }
@@ -307,7 +319,10 @@ export async function matchModeDForConfig(
       payableMinor >= receivedMinor
         ? payableMinor - receivedMinor
         : receivedMinor - payableMinor;
-    if (payableMinor === receivedMinor || (dustMinor > 0n && delta <= dustMinor)) {
+    // Dust absorbs rounding, never more than 1% of the order (review M3).
+    const percent = payableMinor / 100n;
+    const orderDust = dustMinor < percent ? dustMinor : percent;
+    if (payableMinor === receivedMinor || (orderDust > 0n && delta <= orderDust)) {
       amountExact.push(order);
     } else {
       amountMismatches.push(order);

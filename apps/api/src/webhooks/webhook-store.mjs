@@ -204,10 +204,13 @@ export async function markPaymentOrderWebhookOutboxProcessed(outboxId, client) {
 }
 
 /**
- * Claim due pending deliveries (SKIP LOCKED).
+ * Claim due pending deliveries. The claim is a lease: next_retry_at moves past the HTTP
+ * timeout, so no other tick or process picks the same row while it is being posted. A bare
+ * SELECT … FOR UPDATE SKIP LOCKED released its locks as soon as it returned (review M20).
  * @param {number} limit
+ * @param {number} [leaseMs]
  */
-export async function claimPendingWebhookDeliveries(limit = 20) {
+export async function claimPendingWebhookDeliveries(limit = 20, leaseMs = 120_000) {
   const { rows } = await getPool().query(
     `WITH due AS (
        SELECT d.id
@@ -219,22 +222,31 @@ export async function claimPendingWebhookDeliveries(limit = 20) {
        ORDER BY d.next_retry_at ASC
        FOR UPDATE OF d SKIP LOCKED
        LIMIT $1
+     ),
+     leased AS (
+       UPDATE webhook_deliveries d
+       SET next_retry_at = now() + make_interval(secs => $2::double precision / 1000)
+       FROM due
+       WHERE d.id = due.id
+       RETURNING d.id, d.webhook_id, d.event_id, d.event_type, d.body_raw, d.attempt
      )
-     SELECT d.id, d.webhook_id, d.event_id, d.event_type, d.body_raw, d.attempt,
+     SELECT l.id, l.webhook_id, l.event_id, l.event_type, l.body_raw, l.attempt,
             e.url, e.signing_secret, e.org_id
-     FROM webhook_deliveries d
-     JOIN due ON due.id = d.id
-     JOIN webhook_endpoints e ON e.id = d.webhook_id`,
-    [limit],
+     FROM leased l
+     JOIN webhook_endpoints e ON e.id = l.webhook_id`,
+    [limit, leaseMs],
   );
   return rows;
 }
 
 /**
+ * Record one attempt's outcome. Only the claimant of `claimedAttempt` may write, and only
+ * while the row is still pending: a late timeout can no longer overwrite a success (M20).
  * @param {{
  *   deliveryId: string,
  *   status: "success" | "pending" | "failed",
  *   attempt: number,
+ *   claimedAttempt?: number,
  *   httpStatus: number | null,
  *   nextRetryAt: Date | null,
  * }} input
@@ -247,13 +259,16 @@ export async function updateWebhookDeliveryResult(input) {
          http_status = $4,
          next_retry_at = $5,
          updated_at = now()
-     WHERE id = $1`,
+     WHERE id = $1
+       AND status = 'pending'
+       AND ($6::int IS NULL OR attempt = $6::int)`,
     [
       input.deliveryId,
       input.status,
       input.attempt,
       input.httpStatus,
       input.nextRetryAt,
+      input.claimedAttempt ?? null,
     ],
   );
 }

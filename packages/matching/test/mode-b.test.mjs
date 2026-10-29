@@ -317,3 +317,91 @@ describe("@paymentgate/matching mode-b match (M1-32 / M3-60)", () => {
     );
   });
 });
+
+describe("@paymentgate/matching EVM address case (H1)", () => {
+  it("matches a checksummed receive address against a lowercase transfer", async () => {
+    const checksummed = "0x52908400098527886E0F7030069857D2E4169EE7";
+    const result = await matchTransaction({
+      ...baseTx,
+      network: "ethereum",
+      toAddress: checksummed.toLowerCase(),
+      candidates: [{ ...baseCandidate, network: "ethereum", receiveAddress: checksummed }],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-1");
+  });
+});
+
+describe("@paymentgate/matching transfer time (H3)", () => {
+  it("an undated transfer cannot bind to a dated order", async () => {
+    const result = await matchTransaction({
+      ...baseTx,
+      candidates: [{ ...baseCandidate, createdAt: "2026-09-02T09:12:58.868Z" }],
+    });
+    assert.notEqual(result.status, "verifying");
+  });
+
+  it("a transfer mined before the order cannot bind to it", async () => {
+    const createdAt = "2026-09-02T09:12:58.868Z";
+    const result = await matchTransaction({
+      ...baseTx,
+      transferAtMs: Date.parse(createdAt) - 60_000,
+      candidates: [{ ...baseCandidate, createdAt }],
+    });
+    assert.notEqual(result.status, "verifying");
+  });
+});
+
+describe("@paymentgate/matching expiry and dust (M2 / M3)", () => {
+  const createdAt = "2026-10-01T00:00:00.000Z";
+  const expiresAt = "2026-10-01T00:30:00.000Z";
+  const late = Date.parse("2026-10-02T00:00:00.000Z");
+
+  it("a late payment that fits no expired order flags nothing", async () => {
+    const result = await matchTransaction({
+      ...baseTx,
+      amount: "999.00",
+      transferAtMs: late,
+      nowMs: late,
+      candidates: [
+        { ...baseCandidate, createdAt, expiresAt },
+        { ...baseCandidate, orderId: "ord-2", createdAt, expiresAt },
+      ],
+    });
+    assert.equal(result.status, "pending_payment");
+  });
+
+  it("a late payment that fits an expired order flags only that order", async () => {
+    const result = await matchTransaction({
+      ...baseTx,
+      transferAtMs: late,
+      nowMs: late,
+      candidates: [
+        { ...baseCandidate, createdAt, expiresAt },
+        { ...baseCandidate, orderId: "ord-2", payableAmount: "70.00", createdAt, expiresAt },
+      ],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.deepEqual(result.orderIds, ["ord-1"]);
+  });
+
+  it("a payment mined before expiry but seen after it is on time", async () => {
+    const result = await matchTransaction({
+      ...baseTx,
+      transferAtMs: Date.parse("2026-10-01T00:20:00.000Z"),
+      nowMs: late,
+      candidates: [{ ...baseCandidate, createdAt, expiresAt }],
+    });
+    assert.equal(result.status, "verifying");
+  });
+
+  it("dust never absorbs more than 1% of the order", async () => {
+    const trx = { ...baseTx, asset: "TRX", amount: "0.9" };
+    const result = await matchTransaction({
+      ...trx,
+      candidates: [{ ...baseCandidate, asset: "TRX", payableAmount: "1" }],
+    });
+    assert.notEqual(result.status, "verifying");
+  });
+});
+

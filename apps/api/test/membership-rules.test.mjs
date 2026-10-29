@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   canAssignOrgRole,
+  canChangeOwnerSeat,
   canInviteToOrg,
   canListOrgUsers,
   canManageMemberPosPin,
@@ -47,7 +48,7 @@ describe("platform operator team management", () => {
     invitedRole: "owner",
   };
 
-  it("lets platform administrator invite, assign, and remove including owner", () => {
+  it("lets platform administrator invite, assign, and remove (owner seats: see canChangeOwnerSeat)", () => {
     assert.equal(canInviteToOrg(admin), true);
     assert.equal(canAssignOrgRole(admin), true);
     assert.equal(canManageMembershipLifecycle(admin), true);
@@ -107,5 +108,24 @@ describe("canManageMemberPosPin", () => {
       canManageMemberPosPin({ platformOwner: false, roleOnOrg: "cashier" }),
       false,
     );
+  });
+});
+
+describe("canChangeOwnerSeat (C3)", () => {
+  it("allows the org Owner and the Platform Owner", () => {
+    assert.equal(canChangeOwnerSeat({ platformOwner: true, roleOnOrg: null, memberCount: 4 }), true);
+    assert.equal(canChangeOwnerSeat({ platformOwner: false, roleOnOrg: "owner", memberCount: 4 }), true);
+  });
+
+  it("denies a Platform Administrator or parent Admin once the org has members", () => {
+    assert.equal(
+      canChangeOwnerSeat({ platformOwner: false, roleOnOrg: "administrator", memberCount: 1 }),
+      false,
+    );
+    assert.equal(canChangeOwnerSeat({ platformOwner: false, roleOnOrg: null, memberCount: 3 }), false);
+  });
+
+  it("allows seating the first Owner of an empty org (onboarding)", () => {
+    assert.equal(canChangeOwnerSeat({ platformOwner: false, roleOnOrg: null, memberCount: 0 }), true);
   });
 });

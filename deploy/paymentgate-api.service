@@ -5,7 +5,12 @@ Wants=network-online.target docker.service
 
 [Service]
 Type=simple
-WorkingDirectory=/root/PaymentGate
+# Unprivileged user over a root-owned code tree (review D2): code execution in the service
+# cannot rewrite served files, deploy scripts or root's cron jobs.
+# Install with deploy/install-opt-layout.sh.
+User=paymentgate
+Group=paymentgate
+WorkingDirectory=/opt/paymentgate
 EnvironmentFile=/etc/paymentgate/api.env
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/node apps/api/src/server.mjs
@@ -23,8 +28,12 @@ LimitNOFILE=16384
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/root/PaymentGate
+ProtectHome=true
+# Invoice exports are the only files the API writes.
+StateDirectory=paymentgate
+Environment=PAYMENTGATE_EXPORT_DIR=/var/lib/paymentgate/exports
+ReadOnlyPaths=-/var/backups/paymentgate
+Environment=PAYMENTGATE_BACKUP_STATUS_PATH=/var/backups/paymentgate/status.json
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

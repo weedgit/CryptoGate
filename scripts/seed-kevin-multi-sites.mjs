@@ -28,6 +28,7 @@ import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { SEED_PASSWORD } from "./seed-constants.mjs";
 import { markUatDemoUserReady } from "./seed-uat-user-ready.mjs";
 import { NILE_HD_WALLETS, UAT_SETTLEMENT } from "./seed-nile-wallets.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MERCHANT = "Kevin Multi Merchant";
@@ -169,6 +170,7 @@ async function ensureOrder(pool, { orgId, siteKey, day, order, createdBy, receiv
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const { rows: merchants } = await pool.query(

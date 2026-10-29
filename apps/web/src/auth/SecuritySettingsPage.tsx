@@ -75,6 +75,7 @@ function ProfileContactVerify({
   const [email, setEmail] = useState(session.email);
   const [phone, setPhone] = useState(formatPhoneInput(session.phone ?? ""));
   const [editingEmail, setEditingEmail] = useState(false);
+  const [emailPassword, setEmailPassword] = useState("");
   const [editingPhone, setEditingPhone] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [phoneSent, setPhoneSent] = useState(false);
@@ -116,6 +117,7 @@ function ProfileContactVerify({
 
   function cancelChangeEmail() {
     setEditingEmail(false);
+    setEmailPassword("");
     setEmail(session.email);
     setEmailSent(false);
     setOtpModal(null);
@@ -154,7 +156,7 @@ function ProfileContactVerify({
     setError(null);
     setOk(null);
     try {
-      const result = await sendEmailOtp(next);
+      const result = await sendEmailOtp(next, editingEmail ? emailPassword : undefined);
       if (result.session) onSessionRefresh?.(result.session);
       const destination = result.email ?? next;
       setEmail(destination);
@@ -275,9 +277,21 @@ function ProfileContactVerify({
       {showEmailVerify ? (
         <div className="profile-contact__verify">
           {editingEmail ? (
-            <p className={platform ? "plat-settings__row-hint" : "muted"} style={{ marginTop: 6 }}>
-              Current email stays active until you confirm.
-            </p>
+            <>
+              <input
+                className={platform ? "plat-settings__input" : "field-control"}
+                type="password"
+                value={emailPassword}
+                disabled={busy === "email" || emailSent}
+                onChange={(e) => setEmailPassword(e.target.value)}
+                autoComplete="current-password"
+                placeholder="Current password"
+                aria-label="Current password"
+              />
+              <p className={platform ? "plat-settings__row-hint" : "muted"} style={{ marginTop: 6 }}>
+                Current email stays active until you confirm.
+              </p>
+            </>
           ) : null}
           {emailSent ? (
             <button
@@ -298,7 +312,9 @@ function ProfileContactVerify({
             <button
               type="button"
               className={primaryBtn}
-              disabled={busy !== null || !email.trim().includes("@")}
+              disabled={
+                busy !== null || !email.trim().includes("@") || (editingEmail && !emailPassword)
+              }
               onClick={() => void sendEmail()}
             >
               {busy === "email" ? "Sending…" : "Verify email"}
@@ -422,6 +438,7 @@ function ProfileContactVerify({
             if (otpModal.channel === "email") {
               onSessionRefresh?.(await verifyEmailOtp(code));
               setEditingEmail(false);
+              setEmailPassword("");
               setEmailSent(false);
               setOk("Email verified.");
             } else {
@@ -440,7 +457,10 @@ function ProfileContactVerify({
         onResend={async () => {
           try {
             if (otpModal.channel === "email") {
-              const result = await sendEmailOtp(otpModal.destination);
+              const result = await sendEmailOtp(
+                otpModal.destination,
+                editingEmail ? emailPassword : undefined,
+              );
               if (result.session) onSessionRefresh?.(result.session);
               if (result.status === "already_verified") {
                 setEditingEmail(false);

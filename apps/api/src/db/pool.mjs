@@ -22,6 +22,12 @@ export function getPool() {
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
   });
+  // An idle client dropped by Postgres (restart, failover, network) emits "error" on the pool;
+  // unhandled, that crashed the API mid billing or webhook job (review M26). The pool already
+  // discards the client; log and carry on.
+  pool.on("error", (err) => {
+    console.error("postgres idle client error", err?.message ?? err);
+  });
   return pool;
 }
 

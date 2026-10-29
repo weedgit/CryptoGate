@@ -40,7 +40,8 @@ export function dedupeTransfersByTxHash(transfers) {
   const seen = new Set();
   const out = [];
   for (const t of transfers) {
-    const key = `${t.network ?? ""}:${t.txHash}`;
+    // One tx may pay several watched addresses (batch withdrawals): key per output (M5).
+    const key = `${t.network ?? ""}:${t.txHash}:${String(t.toAddress ?? "").trim().toLowerCase()}`;
     if (!t.txHash || seen.has(key)) continue;
     seen.add(key);
     out.push(t);
@@ -68,7 +69,11 @@ export async function listRecentTransfers(options = {}) {
               ),
             );
       return {
-        transfers: dedupeTransfersByTxHash(filtered),
+        // Dev stub: undated rows count as "just now" so they stay eligible for open orders.
+        transfers: dedupeTransfersByTxHash(filtered).map((t) => ({
+          blockTimestampMs: Date.now(),
+          ...t,
+        })),
         mode: "stub-env",
         watchedAddressCount: watched.length,
       };
@@ -102,6 +107,8 @@ export async function listRecentTransfers(options = {}) {
     const live = cfg.nativeAsset
       ? await fetchNativeEthTransfersForAddresses({
           watchedAddresses: watched,
+          allWatchedAddresses: options.allWatchedAddresses,
+          addressSinceMs: options.addressSinceMs,
           fetchImpl: options.fetch,
           sleepImpl: options.sleep,
           runtimeConfig: cfg,
@@ -109,6 +116,7 @@ export async function listRecentTransfers(options = {}) {
         })
       : await fetchErc20TransfersForAddresses({
           watchedAddresses: watched,
+          addressSinceMs: options.addressSinceMs,
           fetchImpl: options.fetch,
           sleepImpl: options.sleep,
           runtimeConfig: cfg,

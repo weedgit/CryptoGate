@@ -15,6 +15,8 @@ import {
   revokeContactOtp,
 } from "../auth/contact-otp-store.mjs";
 import { sessionFromUserWithSetup } from "../auth/session-payload.mjs";
+import { revokeOtherSessionsForUser } from "../auth/sessions.mjs";
+import { verifyPassword } from "../auth/password-hash.mjs";
 import { sendEmailChangeNotice, sendEmailOtp } from "../mail/auth-mail.mjs";
 import {
   checkPhoneVerification,
@@ -144,6 +146,24 @@ export async function handleSendEmailOtp(req, res) {
   }
 
   if (isChange) {
+    // The login email is a credential (password reset goes there): changing it needs the
+    // current password, not just a live session (review M18).
+    const currentPassword =
+      typeof body?.currentPassword === "string" ? body.currentPassword : "";
+    if (!currentPassword) {
+      sendError(
+        res,
+        400,
+        "password_required",
+        "Enter your current password to change your sign-in email",
+      );
+      return;
+    }
+    const account = await findUserByEmail(currentEmail);
+    if (!account || !(await verifyPassword(currentPassword, account.passwordHash))) {
+      sendError(res, 401, "invalid_credentials", "Current password is incorrect");
+      return;
+    }
     const taken = await findUserByEmail(destination);
     if (taken && taken.id !== user.id) {
       sendError(res, 409, "email_taken", "This email is already registered");
@@ -235,6 +255,8 @@ export async function handleVerifyEmailOtp(req, res) {
     }
     await markEmailVerified(caller.userId);
     if (swapped && previousEmail) {
+      // The sign-in email changed: other sessions must sign in again (H9).
+      await revokeOtherSessionsForUser(caller.userId, caller.token);
       await notifyOldEmail(previousEmail, "completed", destination);
     }
     await insertAuditEvent({

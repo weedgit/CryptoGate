@@ -41,6 +41,15 @@ const USER_ROW_WITH_NAMES = `id, email, mfa_enrolled_at, mfa_pending_secret, dis
             email_verified_at, phone, phone_verified_at`;
 
 /**
+ * One plain address (no lists, display names or spaces), at most 254 chars.
+ * @param {string} email
+ */
+export function isSingleEmailAddress(email) {
+  const value = String(email ?? "");
+  return value.length <= 254 && /^[^\s@,;<>"'()]+@[^\s@,;<>"'()]+\.[^\s@,;<>"'()]+$/.test(value);
+}
+
+/**
  * Normalize email for storage and lookup (lower-case trim).
  * @param {string} email
  */
@@ -48,13 +57,16 @@ export function normalizeEmail(email) {
   return email.trim().toLowerCase();
 }
 
+/** Invite temporary passwords stop working after this long (the invitee uses Forgot password). */
+export const INVITE_TEMP_PASSWORD_TTL_DAYS = 7;
+
 /**
  * @param {{ email: string, password: string }} input
  * @returns {Promise<{ id: string, email: string }>}
  */
 export async function createUser(input) {
   const email = normalizeEmail(input.email);
-  if (!email || !email.includes("@")) {
+  if (!email || !isSingleEmailAddress(email)) {
     const err = new Error("Valid email is required");
     err.code = "email_invalid";
     throw err;
@@ -76,9 +88,11 @@ export async function createUser(input) {
     const { rows } = await pool.query(
       `INSERT INTO users (
          email, password_hash, session_timeout_minutes,
-         email_verified_at, phone_verified_at, must_change_password, timezone
+         email_verified_at, phone_verified_at, must_change_password, timezone,
+         password_expires_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, $2, $3, $4, $5, $6, $7,
+               CASE WHEN $6 THEN now() + make_interval(days => $8::int) END)
        RETURNING id, email`,
       [
         email,
@@ -88,6 +102,7 @@ export async function createUser(input) {
         invited ? null : new Date().toISOString(),
         invited,
         timezone,
+        INVITE_TEMP_PASSWORD_TTL_DAYS,
       ],
     );
     return { id: rows[0].id, email: rows[0].email };
@@ -109,7 +124,8 @@ export async function findUserByEmail(email) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT id, email, password_hash, mfa_enrolled_at, must_change_password,
-            email_verified_at, phone, phone_verified_at
+            email_verified_at, phone, phone_verified_at,
+            (password_expires_at IS NOT NULL AND password_expires_at <= now()) AS password_expired
      FROM users
      WHERE email = $1`,
     [normalizeEmail(email)],
@@ -122,6 +138,7 @@ export async function findUserByEmail(email) {
     passwordHash: row.password_hash,
     mfaEnrolled: Boolean(row.mfa_enrolled_at),
     mustChangePassword: row.must_change_password === true,
+    passwordExpired: row.password_expired === true,
     emailVerified: Boolean(row.email_verified_at),
     phone: typeof row.phone === "string" && row.phone.trim() ? row.phone : null,
     phoneVerified: Boolean(row.phone_verified_at),
@@ -420,14 +437,16 @@ export async function authenticateUser(email, password) {
     email: user.email,
     mfaEnrolled: user.mfaEnrolled,
     mustChangePassword: user.mustChangePassword === true,
+    passwordExpired: user.passwordExpired === true,
   };
 }
 
 /**
  * @param {string} userId
  * @param {string} password
+ * @param {{ mustChange?: boolean }} [opts] mustChange: someone else chose it (support edit)
  */
-export async function updateUserPassword(userId, password) {
+export async function updateUserPassword(userId, password, opts = {}) {
   const policy = validatePassword(password);
   if (!policy.ok) {
     const err = new Error(policy.message);
@@ -438,9 +457,10 @@ export async function updateUserPassword(userId, password) {
   const pool = getPool();
   await pool.query(
     `UPDATE users
-     SET password_hash = $2, must_change_password = false, updated_at = now()
+     SET password_hash = $2, must_change_password = $3, password_expires_at = NULL,
+         updated_at = now()
      WHERE id = $1`,
-    [userId, passwordHash],
+    [userId, passwordHash, opts.mustChange === true],
   );
 }
 
@@ -524,7 +544,7 @@ export async function markEmailVerified(userId) {
  */
 export async function setUserEmail(userId, email) {
   const next = normalizeEmail(typeof email === "string" ? email : "");
-  if (!next || !next.includes("@") || next.length > 254) {
+  if (!next || !isSingleEmailAddress(next)) {
     const err = new Error("Valid email is required");
     err.code = "email_invalid";
     throw err;

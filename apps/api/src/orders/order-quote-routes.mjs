@@ -1,4 +1,4 @@
-import { OrderStatus } from "@paymentgate/domain";
+import { OrderStatus, sameAddress } from "@paymentgate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
@@ -214,6 +214,29 @@ export async function handleRefreshPaymentOrderQuote(req, res, orderId) {
           throw new RequoteAbort(lockedBlock.status, lockedBlock.code, lockedBlock.message);
         }
 
+        // Same pair: the payer may already have sent to the current address (review M13).
+        const samePair = locked.asset === asset && locked.network === network;
+        if (samePair && locked.address_source === "hd_pool" && locked.hd_index != null) {
+          // This HD address is the order's alone: keep it, so a payment in flight still lands.
+          const kept = await applyOrderRequote(client, orderId, {
+            asset,
+            network,
+            matchingMode: locked.matching_mode,
+            payableAmount: quote.payAmount,
+            receiveAddress: locked.receive_address,
+            addressSource: locked.address_source,
+            hdIndex: locked.hd_index,
+            memoOrTag: locked.memo_or_tag,
+            requiredConfirmations: config.requiredConfirmations,
+            expiresAt: requoteExpiresAt(locked.validity_seconds, quote.quoteExpiresAt),
+            quote,
+          });
+          if (!kept) {
+            throw new RequoteAbort(409, "order_not_quotable", "Order could not be re-quoted");
+          }
+          return kept;
+        }
+
         const matchingMode = await getEffectiveMatchingMode(inherit.matchingOrgId, client);
         const assigned = await assignOnOrderCreate({
           client,
@@ -231,6 +254,16 @@ export async function handleRefreshPaymentOrderQuote(req, res, orderId) {
         });
         if (!assigned.ok) {
           throw new RequoteAbort(assigned.status, assigned.code, assigned.message, assigned.details);
+        }
+        if (
+          samePair &&
+          !sameAddress(network, assigned.assign.receiveAddress, locked.receive_address)
+        ) {
+          throw new RequoteAbort(
+            409,
+            "receive_address_changed",
+            "The wallet for this order changed since it was created. Create a new order instead.",
+          );
         }
 
         await cooldownHdPoolAddressOfOrder(client, orderId);

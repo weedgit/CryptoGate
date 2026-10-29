@@ -2,10 +2,8 @@
  * MFA step-up for sensitive platform / fund writes.
  */
 import { findUserMfaById } from "../auth/users.mjs";
-import { verifyTotp } from "../auth/totp.mjs";
+import { sendMfaFailure, verifyUserTotp } from "./mfa-attempts.mjs";
 import { sendError } from "../http/json.mjs";
-
-const INVALID_MFA = "Invalid MFA code";
 
 /**
  * @param {{ userId: string }} caller
@@ -25,8 +23,9 @@ export async function requireMfaStepUp(caller, mfaCodeRaw, res) {
     sendError(res, 403, "mfa_required", "MFA enrollment required");
     return false;
   }
-  if (!verifyTotp(user.mfaSecret, mfaCode)) {
-    sendError(res, 401, "invalid_mfa", INVALID_MFA);
+  const mfa = await verifyUserTotp(user.id, user.mfaSecret, mfaCode);
+  if (!mfa.ok) {
+    sendMfaFailure(res, mfa);
     return false;
   }
   return true;

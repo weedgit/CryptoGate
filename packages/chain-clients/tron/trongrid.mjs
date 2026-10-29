@@ -5,6 +5,7 @@
 
 import { fetchWithTimeout } from "../fetch-timeout.mjs";
 import { mapPool } from "../map-pool.mjs";
+import { tronBase58ToHex, tronHexToBase58 } from "./address.mjs";
 import { minorToMajor } from "./amount.mjs";
 import {
   DEFAULT_TRON_MAX_ATTEMPTS,
@@ -81,12 +82,54 @@ export async function withTronRetry(fn, opts = {}) {
   throw lastErr;
 }
 
+/** Pages followed per address per poll (TronGrid `meta.fingerprint`). */
+export const TRON_MAX_PAGES = 5;
+/** Re-read this much before the oldest order so clock skew never hides a transfer. */
+const TRON_SINCE_MARGIN_MS = 5 * 60 * 1000;
+
+/**
+ * All rows for one account listing: from the oldest open order at the address (when known)
+ * and across pages, not just the newest `limit` rows — a busy or dust-spammed address pushed
+ * payments out of a single page for good (review M4).
+ * @param {string} path listing path with its query string
+ * @param {number} limit
+ * @param {number | undefined} sinceMs
+ * @param {{ baseUrl: string, apiKey: string }} cfg
+ * @param {{ fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
+ */
+async function fetchTronListing(path, limit, sinceMs, cfg, input) {
+  const since = Number.isFinite(sinceMs)
+    ? `&min_timestamp=${Math.max(0, Math.floor(Number(sinceMs) - TRON_SINCE_MARGIN_MS))}`
+    : "";
+  const rows = [];
+  let fingerprint = "";
+  for (let page = 0; page < TRON_MAX_PAGES; page += 1) {
+    const pagePath =
+      path + since + (fingerprint ? `&fingerprint=${encodeURIComponent(fingerprint)}` : "");
+    const json = await withTronRetry(
+      () =>
+        trongridFetch(cfg.baseUrl, pagePath, {
+          apiKey: cfg.apiKey,
+          fetchImpl: input.fetchImpl,
+        }),
+      { sleepImpl: input.sleepImpl },
+    );
+    const data = Array.isArray(json?.data) ? json.data : [];
+    rows.push(...data);
+    fingerprint = String(json?.meta?.fingerprint ?? "");
+    if (!fingerprint || data.length < limit) break;
+  }
+  return rows;
+}
+
 /**
  * Map one TronGrid TRC-20 row → watcher transfer shape.
  * @param {Record<string, unknown>} row
  * @param {{ contractAddress: string, decimals: number, network?: string, asset?: string }} cfg
  */
 export function mapTrc20Row(row, cfg) {
+  // The trc20 feed also lists Approval events (from = owner, to = spender, value = allowance).
+  if (String(row.type ?? "").toLowerCase() !== "transfer") return null;
   const token = /** @type {Record<string, unknown>} */ (row.token_info ?? {});
   const tokenAddr = String(token.address ?? "").trim();
   if (
@@ -158,16 +201,9 @@ export async function fetchTrc20TransfersForAddresses(input) {
       (cfg.contractAddress
         ? `&contract_address=${encodeURIComponent(cfg.contractAddress)}`
         : "");
-    let json;
+    let rows;
     try {
-      json = await withTronRetry(
-        () =>
-          trongridFetch(cfg.baseUrl, path, {
-            apiKey: cfg.apiKey,
-            fetchImpl: input.fetchImpl,
-          }),
-        { sleepImpl: input.sleepImpl },
-      );
+      rows = await fetchTronListing(path, limit, input.addressSinceMs?.[address], cfg, input);
     } catch (err) {
       // One bad address must not fail the whole network tick (seed / checksum rejects).
       if (isInvalidTronAddressHttpError(err)) {
@@ -176,7 +212,6 @@ export async function fetchTrc20TransfersForAddresses(input) {
       }
       throw err;
     }
-    const rows = Array.isArray(json?.data) ? json.data : [];
     const mappedRows = [];
     for (const row of rows) {
       const mapped = mapTrc20Row(/** @type {Record<string, unknown>} */ (row), {
@@ -225,16 +260,9 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
     async (address) => {
     const path =
       `/v1/accounts/${encodeURIComponent(address)}/transactions?only_to=true&limit=${limit}`;
-    let json;
+    let rows;
     try {
-      json = await withTronRetry(
-        () =>
-          trongridFetch(cfg.baseUrl, path, {
-            apiKey: cfg.apiKey,
-            fetchImpl: input.fetchImpl,
-          }),
-        { sleepImpl: input.sleepImpl },
-      );
+      rows = await fetchTronListing(path, limit, input.addressSinceMs?.[address], cfg, input);
     } catch (err) {
       if (isInvalidTronAddressHttpError(err)) {
         skippedInvalidRemote += 1;
@@ -242,21 +270,26 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
       }
       throw err;
     }
-    const rows = Array.isArray(json?.data) ? json.data : [];
     const mappedRows = [];
     for (const row of rows) {
       const raw = /** @type {Record<string, unknown>} */ (row.raw_data ?? {});
       const contracts = Array.isArray(raw.contract) ? raw.contract : [];
       const first = /** @type {Record<string, unknown>} */ (contracts[0] ?? {});
       if (String(first.type ?? "") !== "TransferContract") continue;
+      // Failed txs are listed too; only a SUCCESS result moved TRX (H4).
+      const ret = Array.isArray(row.ret) ? row.ret[0] : null;
+      if (String(ret?.contractRet ?? "").toUpperCase() !== "SUCCESS") continue;
 
       const value = /** @type {Record<string, unknown>} */ (
         /** @type {Record<string, unknown>} */ (first.parameter ?? {}).value ?? {}
       );
       const amountSun = Number(value.amount);
-      const toAddress = String(row.toAddress ?? value.to_address ?? "").trim();
-      const ownerRaw = value.owner_address ?? row.from ?? row.ownerAddress;
-      const fromAddress = String(ownerRaw ?? "").trim() || undefined;
+      // Contract parameters come back as hex (41…) unless visible=true; watched addresses
+      // are base58, so convert or nothing ever matches (review M8).
+      const toRaw = String(row.toAddress ?? value.to_address ?? "").trim();
+      const toAddress = tronHexToBase58(toRaw) ?? toRaw;
+      const ownerRaw = String(value.owner_address ?? row.from ?? row.ownerAddress ?? "").trim();
+      const fromAddress = (tronHexToBase58(ownerRaw) ?? ownerRaw) || undefined;
       const txHash = String(row.txID ?? row.transaction_id ?? "").trim();
       if (!toAddress || !watched.has(toAddress) || !Number.isFinite(amountSun) || !txHash) {
         continue;
@@ -269,6 +302,7 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
         continue;
       }
 
+      const blockTimestamp = Number(row.block_timestamp);
       mappedRows.push({
         toAddress,
         fromAddress,
@@ -277,6 +311,8 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
         asset: cfg.asset,
         network: cfg.network,
         memoOrTag: undefined,
+        blockTimestampMs:
+          Number.isFinite(blockTimestamp) && blockTimestamp > 0 ? blockTimestamp : undefined,
       });
     }
     return mappedRows;
@@ -292,11 +328,53 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
   };
 }
 
+/** keccak256("Transfer(address,address,uint256)") */
+const TRC20_TRANSFER_TOPIC =
+  "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+/**
+ * @param {unknown} value
+ */
+function bareHex(value) {
+  return String(value ?? "").trim().toLowerCase().replace(/^0x/, "");
+}
+
+/**
+ * Why a mined tx must not be credited, from `gettransactioninfobyid`; null when it is fine.
+ * TRC-20 txs must have succeeded and emitted a Transfer from the configured contract
+ * (to `toAddress` when given).
+ * @param {Record<string, unknown> | null | undefined} info
+ * @param {{ nativeAsset?: boolean, contractAddress?: string }} cfg
+ * @param {string} [toAddress]
+ * @returns {string | null}
+ */
+export function tronTransactionFailureReason(info, cfg, toAddress) {
+  if (String(info?.result ?? "").toUpperCase() === "FAILED") return "tx_failed";
+  const receipt = /** @type {Record<string, unknown>} */ (info?.receipt ?? {});
+  if (receipt.result !== undefined && String(receipt.result).toUpperCase() !== "SUCCESS") {
+    return "tx_failed";
+  }
+  if (cfg.nativeAsset || !cfg.contractAddress) return null;
+
+  const contractHex = tronBase58ToHex(cfg.contractAddress)?.slice(2);
+  const toHex = toAddress ? tronBase58ToHex(toAddress)?.slice(2) : undefined;
+  const logs = Array.isArray(info?.log) ? info.log : [];
+  const hasTransfer = logs.some((log) => {
+    const address = bareHex(log?.address);
+    const topics = Array.isArray(log?.topics) ? log.topics.map(bareHex) : [];
+    if (topics[0] !== TRC20_TRANSFER_TOPIC || topics.length < 3) return false;
+    if (!contractHex || address.slice(-40) !== contractHex) return false;
+    return !toHex || topics[2].slice(-40) === toHex;
+  });
+  return hasTransfer ? null : "tx_not_token_transfer";
+}
+
 /**
  * Confirmations = current block − tx block (floored at 0).
- * Presence distinguishes reorg (tx gone) from RPC failure (M4-21).
- * @param {{ txHash: string, fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
- * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' }>}
+ * Presence distinguishes reorg (tx gone) from RPC failure (M4-21); `failed` = mined but
+ * reverted, or not a Transfer of the configured token to `toAddress`.
+ * @param {{ txHash: string, toAddress?: string, fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
+ * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' | 'failed', failureReason?: string }>}
  */
 export async function fetchTransactionConfirmationState(input) {
   const cfg = getTronRuntimeConfig(input?.asset, input?.network);
@@ -330,6 +408,11 @@ export async function fetchTransactionConfirmationState(input) {
         confirmations: 0,
         presence: empty || !Number.isFinite(txBlock) ? "missing" : "missing",
       };
+    }
+
+    const failureReason = tronTransactionFailureReason(info, cfg, input.toAddress);
+    if (failureReason) {
+      return { confirmations: 0, presence: "failed", failureReason };
     }
 
     const now = await withTronRetry(

@@ -2,7 +2,7 @@ import { validateMatchingSettings } from "@paymentgate/matching";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { findUserMfaById } from "../auth/users.mjs";
-import { verifyTotp } from "../auth/totp.mjs";
+import { sendMfaFailure, verifyUserTotp } from "../auth/mfa-attempts.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { updateOrgStatus } from "../orgs/org-store.mjs";
 import { toOrgAccount } from "../orgs/org-accounts.mjs";
@@ -10,6 +10,7 @@ import { canComplianceOverride } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
+import { NotificationEventType, notifyMerchantOrg } from "../notifications/notify.mjs";
 import { forceNetworkSettlementAddress } from "../settlement/settlement-store.mjs";
 import { toSettlementAddress } from "../settlement/settlement-rules.mjs";
 import { upsertMatchingModeSettings } from "../matching-mode/matching-mode-store.mjs";
@@ -25,7 +26,6 @@ import {
 } from "./compliance-store.mjs";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
-const INVALID_MFA = "Invalid MFA code";
 
 /**
  * GET /v1/platform/orgs/{orgId}/compliance-overrides
@@ -89,14 +89,24 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
     return;
   }
   const parsed = validated.parsed;
+  if (!canComplianceOverride(caller, parsed.overrideType)) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Only the Platform Owner may force a settlement address",
+    );
+    return;
+  }
 
   const user = await findUserMfaById(caller.userId);
   if (!user?.mfaEnrolled || !user.mfaSecret) {
     sendError(res, 403, "mfa_required", "MFA enrollment required before override");
     return;
   }
-  if (!verifyTotp(user.mfaSecret, parsed.mfaCode)) {
-    sendError(res, 401, "invalid_mfa", INVALID_MFA);
+  const mfa = await verifyUserTotp(user.id, user.mfaSecret, parsed.mfaCode);
+  if (!mfa.ok) {
+    sendMfaFailure(res, mfa);
     return;
   }
 
@@ -111,7 +121,7 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
   let resultPayload = null;
 
   if (parsed.overrideType === "suspend_merchant") {
-    const updated = await updateOrgStatus(orgId, "paused");
+    const updated = await updateOrgStatus(orgId, "paused", { byPlatform: true });
     if (!updated) {
       sendError(res, 404, "not_found", "Merchant org not found");
       return;
@@ -156,11 +166,22 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
     effectMeta.asset = s.asset;
     effectMeta.assets = s.assets;
     effectMeta.network = s.network;
+    effectMeta.address = s.address;
     effectMeta.addressPreview = `${s.address.slice(0, 8)}…`;
     resultPayload = {
       settlement: toSettlementAddress(forced[0]),
       settlements: forced.map(toSettlementAddress),
     };
+    const rail = `${s.network} wallet (${s.assets.join(", ")})`;
+    notifyMerchantOrg(orgId, NotificationEventType.SettlementAddress, {
+      subject: `Settlement address changed by PaymentGate compliance — ${rail}`,
+      lines: [
+        `PaymentGate compliance set the ${rail} settlement address for ${org.name} (reason: ${parsed.reasonCode}). It is active now.`,
+        `Address: ${s.address}`,
+        "If you were not told about this change, contact PaymentGate support immediately.",
+      ],
+      path: "settings/settlement",
+    });
   }
 
   let overrideRow;

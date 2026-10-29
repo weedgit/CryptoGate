@@ -13,6 +13,11 @@ import {
   verifyUserPosPin,
 } from "../auth/users.mjs";
 import { validatePosPin } from "../auth/pos-pin-hash.mjs";
+import {
+  PIN_VERIFY_MAX_FAILURES,
+  PIN_VERIFY_WINDOW_MINUTES,
+  countRecentPinVerifyFailures,
+} from "../pos/pos-terminal-store.mjs";
 import { verifyPassword } from "../auth/password-hash.mjs";
 import { sessionFromUserWithSetup } from "../auth/session-payload.mjs";
 import {
@@ -20,18 +25,23 @@ import {
   clearUserMfa,
   setPendingMfaSecret,
 } from "../auth/mfa.mjs";
-import { generateTotpSecret, otpauthUrl, verifyTotp } from "../auth/totp.mjs";
+import { generateTotpSecret, otpauthUrl } from "../auth/totp.mjs";
+import { sendMfaFailure, verifyUserTotp } from "../auth/mfa-attempts.mjs";
 import {
+  consumePasswordResetToken,
+  countRecentPasswordResetTokens,
   createPasswordResetToken,
-  findValidPasswordReset,
-  markPasswordResetUsed,
+  voidPasswordResetTokensForUser,
 } from "../auth/password-reset-store.mjs";
 import { validatePasswordReset } from "../auth/password-policy.mjs";
 import {
   createSession,
   findActiveSessionByToken,
   markSessionMfaVerified,
+  revokeAllSessionsForUser,
+  revokeOtherSessionsForUser,
   revokeSessionByToken,
+  rotateSessionToken,
 } from "../auth/sessions.mjs";
 import { ALLOWED_SESSION_TIMEOUT_MINUTES } from "../platform-settings/org-policy-store.mjs";
 import { ttlMsForUser } from "./session-ttl.mjs";
@@ -41,7 +51,7 @@ import {
   sessionCookie,
 } from "./cookies.mjs";
 import { requireCaller } from "./require-caller.mjs";
-import { requireSession } from "./require-session.mjs";
+import { requireMfaSession, requireSession } from "./require-session.mjs";
 import { readJsonBody, sendError, sendJson } from "./json.mjs";
 import { listMembershipsForUser } from "../orgs/membership-store.mjs";
 import { canEnrollMfa } from "../orgs/role-policy.mjs";
@@ -59,6 +69,20 @@ const INVALID_MFA = "Invalid MFA code";
 function setSessionCookie(res, token, ttlMs) {
   const maxAgeSec = Math.max(60, Math.floor(ttlMs / 1000));
   res.setHeader("Set-Cookie", sessionCookie(token, { maxAgeSec }));
+}
+
+/**
+ * New token for a session that just passed MFA, so a token captured before the step-up
+ * (or fixed by an attacker) stops working (H9).
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} token
+ * @param {string} userId
+ */
+async function rotateSessionCookie(res, token, userId) {
+  const next = await rotateSessionToken(token);
+  if (!next) return;
+  const profile = await findUserById(userId);
+  setSessionCookie(res, next, ttlMsForUser(profile));
 }
 
 export async function sessionPayload(user, memberships) {
@@ -112,6 +136,15 @@ export async function handleLogin(req, res) {
     sendError(res, 401, "invalid_credentials", GENERIC_LOGIN_ERROR);
     return;
   }
+  if (user.passwordExpired) {
+    sendError(
+      res,
+      401,
+      "password_expired",
+      "This temporary password has expired. Use Forgot password to set a new one.",
+    );
+    return;
+  }
 
   const profile = await findUserById(user.id);
   const ttlMs = ttlMsForUser(profile ?? user);
@@ -126,7 +159,8 @@ export async function handleLogin(req, res) {
   });
   setSessionCookie(res, created.token, ttlMs);
   sendJson(res, 200, {
-    session: await sessionPayload(profile ?? user),
+    // Before TOTP the caller has only proven the password: no org memberships yet (H9).
+    session: await sessionPayload(profile ?? user, user.mfaEnrolled ? [] : undefined),
     mfaRequired: user.mfaEnrolled,
   });
 }
@@ -261,6 +295,7 @@ export async function handleMfaReset(req, res) {
   }
 
   await clearUserMfa(user.id);
+  await revokeOtherSessionsForUser(user.id, caller.token);
   await insertAuditEvent({
     actorUserId: user.id,
     action: AUDIT_ACTIONS.mfaReset,
@@ -299,12 +334,14 @@ export async function handleMfaVerify(req, res) {
   }
 
   if (user.mfaPendingSecret) {
-    if (!verifyTotp(user.mfaPendingSecret, code)) {
-      sendError(res, 401, "invalid_mfa", INVALID_MFA);
+    const mfa = await verifyUserTotp(user.id, user.mfaPendingSecret, code);
+    if (!mfa.ok) {
+      sendMfaFailure(res, mfa);
       return;
     }
     await activatePendingMfa(user.id);
     await markSessionMfaVerified(auth.token);
+    await rotateSessionCookie(res, auth.token, user.id);
     await insertAuditEvent({
       actorUserId: user.id,
       action: AUDIT_ACTIONS.mfaVerifyEnroll,
@@ -314,11 +351,13 @@ export async function handleMfaVerify(req, res) {
   }
 
   if (user.mfaSecret) {
-    if (!verifyTotp(user.mfaSecret, code)) {
-      sendError(res, 401, "invalid_mfa", INVALID_MFA);
+    const login = await verifyUserTotp(user.id, user.mfaSecret, code);
+    if (!login.ok) {
+      sendMfaFailure(res, login);
       return;
     }
     await markSessionMfaVerified(auth.token);
+    await rotateSessionCookie(res, auth.token, user.id);
     await insertAuditEvent({
       actorUserId: user.id,
       action: AUDIT_ACTIONS.mfaVerifyLogin,
@@ -351,25 +390,44 @@ export async function handleForgotPassword(req, res) {
   }
 
   const user = await findUserByEmail(email);
-  if (user) {
-    const rawToken = await createPasswordResetToken(user.id);
-    await insertAuditEvent({
-      actorUserId: user.id,
-      action: AUDIT_ACTIONS.passwordResetRequest,
-    });
-    const resetUrl = passwordResetUrl(rawToken);
-    await sendPasswordResetEmail({ to: user.email, resetUrl });
-    if (process.env.PASSWORD_RESET_EXPOSE_LINK === "true") {
+  if (user && process.env.PASSWORD_RESET_EXPOSE_LINK === "true") {
+    // Local / UAT only: hand the link back instead of mailing it.
+    const rawToken = await issuePasswordReset(user);
+    if (rawToken) {
       sendJson(res, 200, {
         resetPath: inviteRelativePathForToken(rawToken),
-        resetUrl,
+        resetUrl: passwordResetUrl(rawToken),
       });
       return;
     }
+  } else if (user) {
+    // Token + SMTP work happens after the response, so the reply time is the same whether or
+    // not the address has an account (review M19).
+    issuePasswordReset(user).catch((err) => {
+      if (process.env.NODE_ENV !== "test") console.error("password reset mail failed", err);
+    });
   }
 
   res.writeHead(204);
   res.end();
+}
+
+/** Reset links per user per 15 minutes; more requests are dropped silently. */
+const RESET_LINKS_PER_15_MIN = 3;
+
+/**
+ * @param {{ id: string, email: string }} user
+ * @returns {Promise<string | null>} raw token, or null when capped
+ */
+async function issuePasswordReset(user) {
+  if ((await countRecentPasswordResetTokens(user.id, 15)) >= RESET_LINKS_PER_15_MIN) return null;
+  const rawToken = await createPasswordResetToken(user.id);
+  await insertAuditEvent({
+    actorUserId: user.id,
+    action: AUDIT_ACTIONS.passwordResetRequest,
+  });
+  await sendPasswordResetEmail({ to: user.email, resetUrl: passwordResetUrl(rawToken) });
+  return rawToken;
 }
 
 const PROFILE_LOCALES = new Set([
@@ -398,7 +456,7 @@ function isValidIanaTimezone(tz) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handlePatchProfile(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
 
   let body;
@@ -546,7 +604,7 @@ export async function handlePatchProfile(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleChangePassword(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
 
   let body;
@@ -588,6 +646,7 @@ export async function handleChangePassword(req, res) {
   }
 
   await updateUserPassword(user.id, newPassword);
+  await revokeOtherSessionsForUser(user.id, auth.token);
   await insertAuditEvent({
     actorUserId: user.id,
     action: AUDIT_ACTIONS.passwordResetComplete,
@@ -623,14 +682,16 @@ export async function handleResetPassword(req, res) {
     return;
   }
 
-  const match = await findValidPasswordReset(token);
+  // Spent before the password changes: the same link cannot be used twice concurrently.
+  const match = await consumePasswordResetToken(token);
   if (!match) {
     sendError(res, 410, "token_expired", "This reset link has expired or is invalid");
     return;
   }
 
   await updateUserPassword(match.userId, password);
-  await markPasswordResetUsed(token);
+  await revokeAllSessionsForUser(match.userId);
+  await voidPasswordResetTokensForUser(match.userId);
   await markEmailVerified(match.userId);
   await insertAuditEvent({
     actorUserId: match.userId,
@@ -646,7 +707,7 @@ export async function handleResetPassword(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleGetPosPinStatus(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
   const configured = await userHasPosPin(auth.userId);
   sendJson(res, 200, { configured });
@@ -659,7 +720,7 @@ export async function handleGetPosPinStatus(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handlePutPosPin(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
   sendError(
     res,
@@ -676,7 +737,7 @@ export async function handlePutPosPin(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleDeletePosPin(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
 
   let body;
@@ -716,7 +777,7 @@ export async function handleDeletePosPin(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleVerifyPosPin(req, res) {
-  const auth = await requireSession(req, res);
+  const auth = await requireMfaSession(req, res);
   if (!auth) return;
 
   let body;
@@ -742,8 +803,17 @@ export async function handleVerifyPosPin(req, res) {
     );
     return;
   }
+  if ((await countRecentPinVerifyFailures(auth.userId)) >= PIN_VERIFY_MAX_FAILURES) {
+    res.setHeader("Retry-After", String(PIN_VERIFY_WINDOW_MINUTES * 60));
+    sendError(res, 429, "pos_pin_locked", "Too many wrong PINs. Try again in a few minutes.");
+    return;
+  }
   const ok = await verifyUserPosPin(auth.userId, pin);
   if (!ok) {
+    await insertAuditEvent({
+      actorUserId: auth.userId,
+      action: AUDIT_ACTIONS.posPinVerifyFailed,
+    });
     sendError(res, 401, "invalid_pos_pin", "Incorrect PIN. Try again.");
     return;
   }

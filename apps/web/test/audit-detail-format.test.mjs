@@ -19,7 +19,7 @@ describe("audit detail formatting", () => {
     assert.ok(!detail.headline.includes("f1183de1"));
   });
 
-  it("shows initial sign-in on agent invite audit rows", () => {
+  it("never shows a sign-in secret on legacy invite audit rows (C2)", () => {
     const detail = summarizeAuditMetadata("org_user_invite", {
       email: "owner@agent.io",
       role: "owner",
@@ -27,11 +27,7 @@ describe("audit detail formatting", () => {
       orgType: "agent",
       initialSignIn: "one-time-pass-9aA!",
     });
-    assert.ok(
-      detail.lines.some((l) =>
-        /Initial sign-in \(audit recovery\): one-time-pass-9aA!/.test(l),
-      ),
-    );
+    assert.ok(!detail.lines.some((l) => l.includes("one-time-pass-9aA!")));
   });
 
   it("prefers display name over email", () => {

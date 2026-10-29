@@ -101,6 +101,40 @@ describePg("v0.3.2 audit + service bill PATCH (Postgres integration)", () => {
     );
   });
 
+  it("paying one overdue bill keeps the merchant paused while another is overdue (M23)", async () => {
+    const first = await createIssuedBill(seed.merchantOrgId);
+    const second = await createIssuedBill(seed.merchantOrgId);
+    await getPool().query(
+      `UPDATE service_bills SET status = 'overdue', due_at = now() - interval '2 days'
+       WHERE id = ANY($1::uuid[])`,
+      [[first.id, second.id]],
+    );
+    await getPool().query(
+      `UPDATE org_accounts
+       SET status = 'paused', status_reason = 'Unpaid service bill', status_reason_bill_id = $2,
+           status_set_by_platform = true
+       WHERE id = $1`,
+      [seed.merchantOrgId, first.id],
+    );
+    const pay = (id) =>
+      apiFetch(base, `/v1/service-bills/${id}`, {
+        method: "PATCH",
+        token: seed.platformToken,
+        body: { action: "mark_paid" },
+      });
+    assert.equal((await pay(first.id)).status, 200);
+    const org = async () =>
+      (
+        await getPool().query(
+          `SELECT status, status_reason_bill_id FROM org_accounts WHERE id = $1`,
+          [seed.merchantOrgId],
+        )
+      ).rows[0];
+    assert.deepEqual(await org(), { status: "paused", status_reason_bill_id: second.id });
+    assert.equal((await pay(second.id)).status, 200);
+    assert.equal((await org()).status, "active");
+  });
+
   it("PATCH mark_paid from overdue succeeds", async () => {
     const bill = await createIssuedBill(seed.merchantOrgId);
     await getPool().query(

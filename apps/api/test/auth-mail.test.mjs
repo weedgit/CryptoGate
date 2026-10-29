@@ -241,3 +241,17 @@ function restoreEnv(prev) {
     else process.env[k] = v;
   }
 }
+
+describe("mail safety (review lows)", () => {
+  it("accepts one plain address only and redacts codes for logs", async () => {
+    const { isSingleEmailAddress, redactCodes } = await import("../src/mail/auth-mail.mjs");
+    assert.equal(isSingleEmailAddress("owner@merchant.com"), true);
+    for (const bad of ["a@x.com,b@y.com", "a@x.com;b@y.com", "Name <a@x.com>", "a b@x.com", "a@x"]) {
+      assert.equal(isSingleEmailAddress(bad), false, bad);
+    }
+    assert.equal(
+      redactCodes("483920 is your PaymentGate verification code"),
+      "****** is your PaymentGate verification code",
+    );
+  });
+});

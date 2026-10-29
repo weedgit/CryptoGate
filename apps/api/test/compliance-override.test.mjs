@@ -94,4 +94,12 @@ describe("compliance override policy", () => {
     assert.equal(canComplianceOverride({ platformOperator: true }), true);
     assert.equal(canComplianceOverride({ platformOperator: false }), false);
   });
+
+  it("forcing a settlement address is Platform Owner only (C3)", () => {
+    const admin = { platformOperator: true, platformOwner: false };
+    const owner = { platformOperator: true, platformOwner: true };
+    assert.equal(canComplianceOverride(admin, "settlement_address"), false);
+    assert.equal(canComplianceOverride(owner, "settlement_address"), true);
+    assert.equal(canComplianceOverride(admin, "suspend_merchant"), true);
+  });
 });

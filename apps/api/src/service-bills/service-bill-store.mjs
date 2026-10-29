@@ -615,7 +615,27 @@ export async function findActiveActivationBill(orgId) {
 }
 
 /**
- * Sum completed order payable amounts in [fromInclusive, toExclusive).
+ * Oldest bill of this org still overdue, other than `excludeBillId`.
+ * @param {string} orgId
+ * @param {string} excludeBillId
+ * @returns {Promise<string | null>} bill id
+ */
+export async function findOtherOverdueBillId(orgId, excludeBillId) {
+  const { rows } = await getPool().query(
+    `SELECT id FROM service_bills
+     WHERE org_id = $1 AND id <> $2 AND status = 'overdue'
+     ORDER BY due_at ASC
+     LIMIT 1`,
+    [orgId, excludeBillId],
+  );
+  return rows[0]?.id ?? null;
+}
+
+/**
+ * Billable USD volume of orders completed in [fromInclusive, toExclusive).
+ * `payable_amount` is in token units (ETH, TRX…), so the USD invoice amount locked at quote
+ * is summed, and an order counts in the period it was confirmed — later watcher touch-ups
+ * move `updated_at` and would bill it twice (H10).
  * @param {string[]} orgIds
  * @param {string} fromInclusive ISO timestamptz
  * @param {string} toExclusive ISO timestamptz
@@ -623,12 +643,13 @@ export async function findActiveActivationBill(orgId) {
 export async function sumCompletedPayableVolume(orgIds, fromInclusive, toExclusive) {
   if (!orgIds.length) return "0";
   const { rows } = await getPool().query(
-    `SELECT COALESCE(SUM(payable_amount::numeric), 0)::text AS volume
+    `SELECT COALESCE(SUM(${safeNumericSql("COALESCE(invoice_amount_usd, payable_amount)")}), 0)::text
+              AS volume
      FROM payment_orders
      WHERE org_id = ANY($1::uuid[])
        AND status = 'completed'
-       AND updated_at >= $2::timestamptz
-       AND updated_at < $3::timestamptz`,
+       AND COALESCE(confirmed_at, updated_at) >= $2::timestamptz
+       AND COALESCE(confirmed_at, updated_at) < $3::timestamptz`,
     [orgIds, fromInclusive, toExclusive],
   );
   return rows[0]?.volume ?? "0";

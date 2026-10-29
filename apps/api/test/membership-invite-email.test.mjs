@@ -122,7 +122,7 @@ describePg("org invite — platform-wide email uniqueness", () => {
     assert.equal(res.json.role, "viewer");
   });
 
-  it("stores initialSignIn on agent owner invite audit for platform recovery", async () => {
+  it("never stores the temporary password on the invite audit row (C2)", async () => {
     const agent = await insertOrgAccount({
       type: "agent",
       name: `Audit recovery agent ${Date.now()}`,
@@ -152,8 +152,69 @@ describePg("org invite — platform-wide email uniqueness", () => {
         item.metadata?.email === ownerEmail,
     );
     assert.ok(row, "expected org_user_invite audit row");
-    assert.equal(row.metadata.initialSignIn, invite.json.temporaryPassword);
+    assert.equal(row.metadata.initialSignIn, undefined);
+    assert.ok(!JSON.stringify(row.metadata).includes(invite.json.temporaryPassword));
     assert.equal(row.metadata.orgType, "agent");
+  });
+
+  it("temporary password sessions are limited until changed, and expire (C2)", async () => {
+    const email = `temp-pass-${Date.now()}@paymentgate.local`;
+    const invite = await apiFetch(base, `/v1/orgs/${seed.merchantOrgId}/users`, {
+      method: "POST",
+      token: seed.platformToken,
+      body: { email, role: "viewer" },
+    });
+    assert.equal(invite.status, 201);
+    const temporaryPassword = invite.json.temporaryPassword;
+
+    const login = await fetch(`${base}/v1/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: temporaryPassword }),
+    });
+    assert.equal(login.status, 200);
+    const token = /cg_session=([^;]+)/.exec(login.headers.get("set-cookie") ?? "")?.[1];
+    assert.ok(token);
+
+    const session = await apiFetch(base, "/v1/auth/session", { token });
+    assert.equal(session.status, 200);
+    assert.equal(session.json.mustChangePassword, true);
+
+    const blocked = await apiFetch(base, `/v1/orgs/${seed.merchantOrgId}/users`, { token });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.json.code, "password_change_required");
+
+    const changed = await apiFetch(base, "/v1/auth/change-password", {
+      method: "POST",
+      token,
+      body: { currentPassword: temporaryPassword, newPassword: "ChangedPass12345!" },
+    });
+    assert.ok(changed.status === 200 || changed.status === 204, JSON.stringify(changed.json));
+    const after = await apiFetch(base, `/v1/orgs/${seed.merchantOrgId}/users`, { token });
+    assert.notEqual(after.json?.code, "password_change_required");
+
+    const email2 = `temp-expired-${Date.now()}@paymentgate.local`;
+    const invite2 = await apiFetch(base, `/v1/orgs/${seed.merchantOrgId}/users`, {
+      method: "POST",
+      token: seed.platformToken,
+      body: { email: email2, role: "viewer" },
+    });
+    assert.equal(invite2.status, 201);
+    await getPool().query(
+      `UPDATE users SET password_expires_at = now() - interval '1 minute' WHERE email = $1`,
+      [email2],
+    );
+    const expired = await apiFetch(base, "/v1/auth/login", {
+      method: "POST",
+      body: { email: email2, password: invite2.json.temporaryPassword },
+    });
+    assert.equal(expired.status, 401);
+    assert.equal(expired.json.code, "password_expired");
+    const wrong = await apiFetch(base, "/v1/auth/login", {
+      method: "POST",
+      body: { email: email2, password: "WrongPassword123!" },
+    });
+    assert.equal(wrong.json.code, "invalid_credentials");
   });
 
   it("allows same email on the same org only once", async () => {

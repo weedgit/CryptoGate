@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createUser, findUserById } from "../src/auth/users.mjs";
 import { createPasswordResetToken } from "../src/auth/password-reset-store.mjs";
 import { createSession } from "../src/auth/sessions.mjs";
+import { getPool } from "../src/db/pool.mjs";
 import { insertMembership } from "../src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../src/orgs/org-store.mjs";
 import {
@@ -10,6 +11,7 @@ import {
   isSetupAllowedMutation,
 } from "../src/auth/contact-verification.mjs";
 import {
+  enrollTestMfa,
   apiFetch,
   closePool,
   hasPostgres,
@@ -17,6 +19,19 @@ import {
   startTestServer,
   stopTestServer,
 } from "./helpers/postgres-integration.mjs";
+
+/**
+ * Invited account that already replaced its temporary password (the portal forces that first).
+ * @param {{ email: string, password: string }} input
+ */
+async function createInvitedUser(input) {
+  const user = await createUser({ ...input, invited: true });
+  await getPool().query(
+    `UPDATE users SET must_change_password = false, password_expires_at = NULL WHERE id = $1`,
+    [user.id],
+  );
+  return user;
+}
 
 describe("contact gated paths", () => {
   it("allows GET and /v1/auth writes", () => {
@@ -60,7 +75,7 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
     const stamp = Date.now();
     const email = `invite-owner-${stamp}@local.paymentgate`;
     const password = "InviteOwner12!a";
-    const user = await createUser({ email, password, invited: true });
+    const user = await createInvitedUser({ email, password });
     assert.equal((await findUserById(user.id)).emailVerified, false);
 
     let platform = await findPlatformOrg();
@@ -84,10 +99,11 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
       userId: user.id,
       role: "owner",
     });
+    await enrollTestMfa(user.id);
 
     const { server, base } = await startTestServer();
     try {
-      const token = (await createSession({ userId: user.id, mfaVerified: true }))
+      let token = (await createSession({ userId: user.id, mfaVerified: true }))
         .token;
 
       const blocked = await apiFetch(base, "/v1/orders", {
@@ -109,6 +125,11 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
       });
       assert.equal(reset.status, 204);
       assert.equal((await findUserById(user.id)).emailVerified, true);
+
+      // A password reset ends every existing session (H9); continue on a fresh one.
+      const revoked = await apiFetch(base, "/v1/auth/session", { token });
+      assert.equal(revoked.status, 401);
+      token = (await createSession({ userId: user.id, mfaVerified: true })).token;
 
       const stillPhone = await apiFetch(base, "/v1/orders", {
         method: "POST",
@@ -205,10 +226,9 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
     runMigrations();
     const stamp = Date.now();
     const email = `otp-owner-${stamp}@local.paymentgate`;
-    const user = await createUser({
+    const user = await createInvitedUser({
       email,
       password: "OtpOwnerPass12!",
-      invited: true,
     });
     const { server, base } = await startTestServer();
     try {
@@ -237,10 +257,9 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
   it("reports undelivered codes in production and allows an immediate retry", async () => {
     runMigrations();
     const stamp = Date.now();
-    const user = await createUser({
+    const user = await createInvitedUser({
       email: `undelivered-${stamp}@local.paymentgate`,
       password: "Undelivered12!a",
-      invited: true,
     });
     const saved = {
       NODE_ENV: process.env.NODE_ENV,

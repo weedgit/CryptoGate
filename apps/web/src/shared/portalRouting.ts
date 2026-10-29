@@ -107,6 +107,22 @@ export function portalRoute(portal: PortalId, subpath = ""): string {
   return `${base}/${tail}`.replace(/\/{2,}/g, "/");
 }
 
+/**
+ * A `returnTo` value that stays inside this portal: same-origin absolute path under `prefix`.
+ * With root routing the prefix is "/", which "//evil.com" (protocol-relative) and "/\\evil.com"
+ * also start with — those are other sites (review: open redirect).
+ */
+export function isSafeInAppPath(raw: string, prefix: string): boolean {
+  if (!raw.startsWith(prefix)) return false;
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return false;
+  if (/[\u0000-\u001f\\]/.test(raw)) return false;
+  try {
+    return new URL(raw, "https://portal.invalid").origin === "https://portal.invalid";
+  } catch {
+    return false;
+  }
+}
+
 export function platformRoute(subpath = ""): string {
   return portalRoute("platform", subpath);
 }

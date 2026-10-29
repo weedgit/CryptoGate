@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { HDKey } from "@scure/bip32";
 import { resolvePlatformFeeNetwork } from "@paymentgate/domain";
 import {
+  enrollTestMfa,
   closePool,
   hasPostgres,
   runMigrations,
@@ -158,7 +159,9 @@ describe("order re-quote + pricing kill switch (Postgres integration)", { skip }
     const owner = await ensureUser(`${PREFIX}owner-${run}@paymentgate.local`);
     const viewer = await ensureUser(`${PREFIX}viewer-${run}@paymentgate.local`);
     await insertMembership({ orgId: merchantId, userId: owner.id, role: "owner" });
+    await enrollTestMfa(owner.id);
     await insertMembership({ orgId: merchantId, userId: viewer.id, role: "viewer" });
+    await enrollTestMfa(viewer.id);
     ownerToken = (await createSession({ userId: owner.id, mfaVerified: true })).token;
     viewerToken = (await createSession({ userId: viewer.id, mfaVerified: true })).token;
 
@@ -203,7 +206,13 @@ describe("order re-quote + pricing kill switch (Postgres integration)", { skip }
     assert.equal(before.validity_seconds, 1800);
 
     const other = await createOrder({ asset: "USDT", network: "tron", amountUsd: "100" });
-    assert.notEqual(String((await row(other.id)).payable_amount), String(before.payable_amount));
+    const otherRow = await row(other.id);
+    assert.notEqual(String(otherRow.payable_amount), String(before.payable_amount));
+    // Base units follow the bumped payable, not the pre-bump quote (M12).
+    assert.equal(
+      String(otherRow.pay_amount_base_units),
+      String(Math.round(Number(otherRow.payable_amount) * 10 ** Number(otherRow.asset_decimals))),
+    );
 
     prices.USDT = "0.98";
     clearUsdPriceCache();
@@ -295,7 +304,7 @@ describe("order re-quote + pricing kill switch (Postgres integration)", { skip }
     assert.equal(late.json.error?.code ?? late.json.code, "order_expired");
   });
 
-  it("Smart address (HD pool): new address bound, old one cools down", async () => {
+  it("Smart address (HD pool): re-quote keeps the order's own address (M13)", async () => {
     await upsertMatchingModeSettings({ orgId: merchantId, matchingMode: "S" });
     await upsertXpub({ orgId: merchantId, asset: "USDT", network: "tron", xPub: VECTOR_XPUB, cooldownMs: 0 });
     const onMain = await createOrder({ asset: "USDT", network: "tron", amountUsd: "30" });
@@ -305,37 +314,29 @@ describe("order re-quote + pricing kill switch (Postgres integration)", { skip }
     const first = await row(order.id);
     assert.equal(first.address_source, "hd_pool");
 
-    const hdRows = async (addrs) => {
+    const hdRow = async (addr) => {
       const { rows } = await getPool().query(
-        `SELECT receive_address, status, last_order_id FROM hd_pool_addresses
-         WHERE org_id = $1 AND receive_address = ANY($2::text[])`,
-        [merchantId, addrs],
+        `SELECT status, last_order_id FROM hd_pool_addresses
+         WHERE org_id = $1 AND receive_address = $2`,
+        [merchantId, addr],
       );
-      return Object.fromEntries(rows.map((r) => [r.receive_address, r]));
+      return rows[0];
     };
 
-    // Unchanged amount still conflicts → a fresh HD address; the old one cools down.
-    const res = await requote(order.id);
-    assert.equal(res.status, 200, JSON.stringify(res.json));
-    const second = await row(order.id);
-    assert.equal(second.address_source, "hd_pool");
-    assert.notEqual(second.receive_address, first.receive_address);
-    let byAddr = await hdRows([first.receive_address, second.receive_address]);
-    assert.equal(byAddr[first.receive_address].status, "COOLDOWN");
-    assert.equal(byAddr[second.receive_address].status, "IN_USE");
-    assert.equal(byAddr[second.receive_address].last_order_id, order.id);
-
-    // New rate → no conflict → back on the main address; the HD address cools down.
-    prices.USDT = "0.97";
-    clearUsdPriceCache();
-    const moved = await requote(order.id);
-    assert.equal(moved.status, 200, JSON.stringify(moved.json));
-    const third = await row(order.id);
-    assert.equal(third.address_source, "main");
-    assert.equal(third.receive_address, TRON_MAIN);
-    assert.equal(third.hd_index, null);
-    byAddr = await hdRows([second.receive_address]);
-    assert.equal(byAddr[second.receive_address].status, "COOLDOWN");
+    // A payer may already be sending to this address: re-quotes keep it, only the amount moves.
+    for (const price of ["1", "0.97"]) {
+      prices.USDT = price;
+      clearUsdPriceCache();
+      const res = await requote(order.id);
+      assert.equal(res.status, 200, JSON.stringify(res.json));
+      const after = await row(order.id);
+      assert.equal(after.address_source, "hd_pool");
+      assert.equal(after.receive_address, first.receive_address);
+      assert.equal(after.hd_index, first.hd_index);
+      const pool = await hdRow(first.receive_address);
+      assert.equal(pool.status, "IN_USE");
+      assert.equal(pool.last_order_id, order.id);
+    }
   });
 
   it("kill switch ends open rate-priced orders, not exact-crypto ones", async () => {

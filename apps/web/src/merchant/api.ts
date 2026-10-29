@@ -1332,12 +1332,19 @@ export type ContactOtpSendResult = {
   session?: Session;
 };
 
-export async function sendEmailOtp(email?: string): Promise<ContactOtpSendResult> {
+/** `currentPassword` is required by the API when `email` differs from the sign-in email. */
+export async function sendEmailOtp(
+  email?: string,
+  currentPassword?: string,
+): Promise<ContactOtpSendResult> {
   const res = await apiFetch(`${API_BASE}/auth/contact/email/send`, {
     method: "POST",
     credentials: "include",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify(email ? { email } : {}),
+    body: JSON.stringify({
+      ...(email ? { email } : {}),
+      ...(currentPassword ? { currentPassword } : {}),
+    }),
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as ContactOtpSendResult;

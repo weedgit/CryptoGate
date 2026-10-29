@@ -55,16 +55,29 @@ function isLoopbackRemote(remoteAddress) {
 }
 
 /**
+ * @param {string | string[] | undefined} raw
+ */
+function headerValue(raw) {
+  const value = Array.isArray(raw) ? raw.join(",") : raw;
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * Client IP behind the local nginx. nginx sets X-Real-IP to the peer it saw and *appends*
+ * that peer to X-Forwarded-For, so only X-Real-IP or the rightmost XFF entry is trustworthy;
+ * the leftmost entry is whatever the client sent (H8).
  * @param {import("node:http").IncomingHttpHeaders} headers
  * @param {string | undefined} remoteAddress
  */
 export function clientIp(headers, remoteAddress) {
   if (isLoopbackRemote(remoteAddress)) {
-    const forwarded = headers["x-forwarded-for"];
-    const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-    if (typeof value === "string" && value.trim()) {
-      return value.split(",")[0].trim();
-    }
+    const realIp = headerValue(headers["x-real-ip"]);
+    if (realIp && !realIp.includes(",")) return realIp;
+    const hops = headerValue(headers["x-forwarded-for"])
+      .split(",")
+      .map((hop) => hop.trim())
+      .filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
   }
   if (typeof remoteAddress === "string" && remoteAddress) {
     return remoteAddress;
@@ -73,11 +86,18 @@ export function clientIp(headers, remoteAddress) {
 }
 
 /**
+ * Password, TOTP and reset-token guesses share the login bucket.
  * @param {string} method
  * @param {string} path
  */
 export function isLoginPath(method, path) {
-  return method === "POST" && path === "/v1/auth/login";
+  return (
+    method === "POST" &&
+    (path === "/v1/auth/login" ||
+      path === "/v1/auth/mfa/verify" ||
+      path === "/v1/auth/forgot-password" ||
+      path === "/v1/auth/reset-password")
+  );
 }
 
 /** Brute-force sensitive — same bucket intensity as login. */

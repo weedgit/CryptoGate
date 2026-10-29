@@ -200,7 +200,8 @@ import {
   handleMarkCommissionPayoutPaid,
   handleMarkCommissionPayoutPaidBatch,
 } from "../commercial/commission-payout-routes.mjs";
-import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
+import { applyCorsHeaders, handleCorsPreflight, isAllowedMutationOrigin } from "./cors.mjs";
+import { getSessionToken } from "./cookies.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
 import { rejectUnverifiedLiveAction } from "../auth/contact-verification.mjs";
@@ -237,11 +238,28 @@ export async function handleRequest(req, res) {
   applyCorsHeaders(req, res);
   if (handleCorsPreflight(req, res)) return;
 
+  // URL parsing turns "\" into "/", but nginx matches locations on the raw path: a backslash
+  // would let `/v1/auth\login` skip the login limit zone (H8).
+  if ((req.url ?? "").includes("\\")) {
+    sendError(res, 400, "invalid_path", "Invalid request path");
+    return;
+  }
+
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const path = url.pathname;
   const method = req.method ?? "GET";
 
   if (applyRateLimits(req, res, { method, path })) return;
+
+  if (
+    !["GET", "HEAD", "OPTIONS"].includes(method) &&
+    path.startsWith("/v1/") &&
+    getSessionToken(req.headers.cookie) &&
+    !isAllowedMutationOrigin(req)
+  ) {
+    sendError(res, 403, "cross_site_request", "Cross-site request refused");
+    return;
+  }
 
   if (method === "GET" && path === "/health") {
     const payload = await getHealthPayload({ checkDb: true });

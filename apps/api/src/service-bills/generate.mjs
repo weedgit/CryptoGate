@@ -1,7 +1,10 @@
 import { ServiceBillKind, ServiceBillStatus } from "@paymentgate/domain";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { listOrgAccounts } from "../orgs/org-store.mjs";
-import { consumeMerchantServiceBillCredit } from "../commercial/merchant-commercial-store.mjs";
+import {
+  addMerchantServiceBillCredit,
+  consumeMerchantServiceBillCredit,
+} from "../commercial/merchant-commercial-store.mjs";
 import { resolveMerchantRatesForBilling } from "../platform-settings/pricing-resolve.mjs";
 import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
 import { merchantInvoiceDueAt } from "../platform-settings/billing-calendar-rules.mjs";
@@ -105,21 +108,28 @@ export async function generateServiceBillsForPeriod(input = {}) {
       ? ServiceBillStatus.Issued
       : ServiceBillStatus.Draft;
 
-    let row = await insertServiceBill({
-      orgId: merchant.id,
-      periodStart,
-      periodEnd,
-      subscriptionAmount,
-      volumeFeeAmount,
-      totalAmount,
-      dueAt,
-      status: initialStatus,
-      tier: resolved.tier,
-      volumeFeePercent: String(resolved.volumeFeePercent),
-      billedVolumeUsd,
-      billKind: ServiceBillKind.Monthly,
-      sentAt: autoSend ? new Date().toISOString() : null,
-    });
+    let row;
+    try {
+      row = await insertServiceBill({
+        orgId: merchant.id,
+        periodStart,
+        periodEnd,
+        subscriptionAmount,
+        volumeFeeAmount,
+        totalAmount,
+        dueAt,
+        status: initialStatus,
+        tier: resolved.tier,
+        volumeFeePercent: String(resolved.volumeFeePercent),
+        billedVolumeUsd,
+        billKind: ServiceBillKind.Monthly,
+        sentAt: autoSend ? new Date().toISOString() : null,
+      });
+    } catch (err) {
+      // The bill was not created: give the merchant their credit back (M22).
+      if (creditAppliedUsd) await addMerchantServiceBillCredit(merchant.id, creditAppliedUsd);
+      throw err;
+    }
 
     if (waiver) {
       issued.push(await closeMonthlyBillAsWaived(row, waiver));

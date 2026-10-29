@@ -27,6 +27,7 @@ import { findPlatformOrg, insertOrgAccount, updateOrgStatus } from "../apps/api/
 import { upsertFeeWaiver } from "../apps/api/src/service-bills/billing-waiver-store.mjs";
 import { addOneMonthUtcDateString } from "../apps/api/src/service-bills/billing-anchor-rules.mjs";
 import { loadSeedEnv } from "./seed-env.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const NAME_PREFIX = "Missed Seed";
 const SEED_TAG = "missed-invoice-seed";
@@ -177,6 +178,7 @@ async function insertBill(pool, b) {
 
 async function main() {
   loadSeedEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const { rows: agents } = await pool.query(

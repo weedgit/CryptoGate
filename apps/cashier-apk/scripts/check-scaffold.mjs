@@ -125,7 +125,6 @@ describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
     assert.match(create, /AssetIcon/);
     assert.match(create, /NetworkIcon/);
     assert.match(create, /leadingIcon/);
-    assert.match(create, /rememberAmountPulse/);
     assert.match(create, /AnimatedVisibility/);
     const settings = readFileSync(
       join(root, "app/src/main/java/com/paymentgate/cashier/ui/SettingsScreen.kt"),

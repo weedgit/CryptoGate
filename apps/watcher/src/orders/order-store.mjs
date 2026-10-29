@@ -3,6 +3,7 @@
  * M4-20: apply paths are restart-safe (no duplicate status rewrites).
  */
 
+import { canonicalAddress } from "@paymentgate/domain";
 import {
   confirmationWriteNeeded,
   matchWriteNeeded,
@@ -188,7 +189,8 @@ export async function listOrdersByReceiveAddresses(db, filter) {
  */
 export async function listOrdersAwaitingConfirmations(db, filter) {
   const { rows } = await db.query(
-    `SELECT id, status, tx_hash, confirmations, required_confirmations, network
+    `SELECT id, status, tx_hash, confirmations, required_confirmations, network,
+            receive_address
      FROM payment_orders
      WHERE asset = $1
        AND network = $2
@@ -205,6 +207,7 @@ export async function listOrdersAwaitingConfirmations(db, filter) {
     requiredConfirmations: row.required_confirmations,
     network: row.network,
     asset: filter.asset,
+    receiveAddress: row.receive_address,
   }));
 }
 
@@ -214,7 +217,8 @@ export async function listOrdersAwaitingConfirmations(db, filter) {
  */
 export async function listAllOrdersAwaitingConfirmations(db) {
   const { rows } = await db.query(
-    `SELECT id, status, tx_hash, confirmations, required_confirmations, network, asset
+    `SELECT id, status, tx_hash, confirmations, required_confirmations, network, asset,
+            receive_address
      FROM payment_orders
      WHERE status = ANY($1::text[])
        AND tx_hash IS NOT NULL
@@ -229,6 +233,7 @@ export async function listAllOrdersAwaitingConfirmations(db) {
     requiredConfirmations: row.required_confirmations,
     network: row.network,
     asset: row.asset,
+    receiveAddress: row.receive_address,
   }));
 }
 
@@ -282,14 +287,27 @@ export async function applyMatchResult(db, input) {
   const { rows } = await db.query(
     `SELECT id, status, tx_hash, received_amount::text AS received_amount
      FROM payment_orders
-     WHERE id = ANY($1::uuid[])`,
+     WHERE id = ANY($1::uuid[])
+     ORDER BY created_at ASC, id ASC`,
     [ids],
   );
 
   const toWrite = [];
   /** @type {string[]} */
   const skipReasons = [];
+  // A collision already recorded: the hash sits on one order of the group, the others are
+  // anomalies without it (M1). Re-seeing the transfer must not rewrite them.
+  const groupHasHash = rows.some((r) => r.tx_hash === transfer.txHash);
   for (const row of rows) {
+    if (
+      groupHasHash &&
+      !row.tx_hash &&
+      row.status === "payment_anomaly" &&
+      result.status === "payment_anomaly"
+    ) {
+      skipReasons.push("already_applied");
+      continue;
+    }
     const decision = matchWriteNeeded(
       {
         status: row.status,
@@ -314,6 +332,14 @@ export async function applyMatchResult(db, input) {
     };
   }
 
+  // tx_hash is unique per network: a collision anomaly records it on the oldest order only.
+  // Writing it to every row violated the index, the error was swallowed and the anomaly was
+  // never saved (review M1).
+  const hashHolderId =
+    rows.find((r) => r.tx_hash === transfer.txHash)?.id ??
+    rows.find((r) => toWrite.includes(r.id) && !r.tx_hash)?.id ??
+    null;
+
   try {
     const { rowCount } = await db.query(
       `UPDATE payment_orders
@@ -328,7 +354,7 @@ export async function applyMatchResult(db, input) {
            END,
            tx_hash = CASE
              WHEN $1 = 'verifying' THEN $3
-             WHEN tx_hash IS NULL AND $1 = 'payment_anomaly' THEN $3
+             WHEN tx_hash IS NULL AND $1 = 'payment_anomaly' AND id = $8::uuid THEN $3
              ELSE tx_hash
            END,
            from_address = CASE
@@ -349,6 +375,7 @@ export async function applyMatchResult(db, input) {
         WATCHER_MATCH_APPLY_STATUSES,
         result.reason ?? null,
         fromAddress,
+        hashHolderId,
       ],
     );
 
@@ -377,20 +404,35 @@ export async function applyMatchResult(db, input) {
 }
 
 /**
+ * Key of one transfer output: a tx can pay several watched addresses (review M5).
+ * @param {string} network
+ * @param {string} txHash
+ * @param {string} toAddress
+ */
+export function transferOutputKey(network, txHash, toAddress) {
+  return `${String(txHash ?? "").trim()}|${canonicalAddress(network, String(toAddress ?? ""))}`;
+}
+
+/**
+ * Outputs (tx hash + receive address) already bound to an order.
  * @param {import("pg").Pool | import("pg").PoolClient} db
  * @param {{ network: string, txHashes: string[] }} input
- * @returns {Promise<Set<string>>}
+ * @returns {Promise<Set<string>>} transferOutputKey values
  */
 export async function listKnownTxHashes(db, input) {
   if (!input.txHashes.length) return new Set();
   const { rows } = await db.query(
-    `SELECT tx_hash
+    `SELECT tx_hash, receive_address
      FROM payment_orders
      WHERE network = $1
        AND tx_hash = ANY($2::text[])`,
     [input.network, input.txHashes],
   );
-  return new Set(rows.map((r) => r.tx_hash).filter(Boolean));
+  return new Set(
+    rows
+      .filter((r) => r.tx_hash)
+      .map((r) => transferOutputKey(input.network, r.tx_hash, r.receive_address)),
+  );
 }
 
 /**
@@ -402,6 +444,7 @@ export async function listKnownTxHashes(db, input) {
  *   confirmations: number,
  *   nextStatus: string | null,
  *   reorg?: boolean,
+ *   anomalyReason?: string,
  * }} input
  */
 export async function applyConfirmationUpdate(db, input) {
@@ -445,7 +488,7 @@ export async function applyConfirmationUpdate(db, input) {
         input.confirmations,
         input.orderId,
         WATCHER_CONFIRM_STATUSES,
-        decision.reason ?? "reorg",
+        input.anomalyReason ?? decision.reason ?? "reorg",
       ],
     );
     return {

@@ -50,6 +50,9 @@ export function sendCsv(res, status, filename, body) {
   res.end(body);
 }
 
+/** Largest request body the API reads. */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
 /**
  * Exact request bytes (HMAC hashes this, not a trimmed JSON view).
  * @param {import("node:http").IncomingMessage & { rawBody?: Buffer }} req
@@ -58,7 +61,13 @@ export function sendCsv(res, status, filename, body) {
 export async function readRawBody(req) {
   if (Buffer.isBuffer(req.rawBody)) return req.rawBody;
   const chunks = [];
+  let size = 0;
   for await (const chunk of req) {
+    size += chunk.length;
+    // Same ceiling as nginx (client_max_body_size 2m) for direct connections.
+    if (size > MAX_BODY_BYTES) {
+      throw Object.assign(new Error("Request body too large"), { code: "body_too_large" });
+    }
     chunks.push(chunk);
   }
   req.rawBody = Buffer.concat(chunks);
@@ -72,5 +81,11 @@ export async function readRawBody(req) {
 export async function readJsonBody(req) {
   const raw = (await readRawBody(req)).toString("utf8").trim();
   if (raw === "") return {};
+  // A cross-site <form> can only send text/plain, urlencoded or multipart bodies; requiring
+  // JSON takes those CSRF vectors off every mutation (review D8).
+  const type = String(req.headers?.["content-type"] ?? "").toLowerCase();
+  if (!/^application\/([a-z0-9.+-]*\+)?json\b/.test(type)) {
+    throw new SyntaxError("Request body must be application/json");
+  }
   return JSON.parse(raw);
 }

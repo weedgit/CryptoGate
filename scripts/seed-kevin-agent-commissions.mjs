@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MARKER_AGENT = "Kevin Agent";
@@ -57,6 +58,7 @@ function fakeTxRef(periodKey) {
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const { closePool, getPool } = await import("../apps/api/src/db/pool.mjs");
   const { buildInvoiceForAgent, currentCommissionPeriodKey, shouldCreateCommissionInvoice } =
     await import("../apps/api/src/commercial/commission-invoice-generate.mjs");

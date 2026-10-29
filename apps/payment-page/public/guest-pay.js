@@ -3,7 +3,21 @@
  * (Renamed from mock-order.js — this is the production guest path.)
  */
 const params = new URLSearchParams(location.search);
+/**
+ * Demo checkout (no order id, everything from the URL) is a local preview only. On the real pay
+ * domain it let anyone render a "Paid" page or another address on a genuine URL (review D3).
+ * Local config.js turns it on; the deployed /config.js does not.
+ */
+const DEMO_ENABLED = window.PAYMENTGATE_PAY_DEMO === true;
 const demoState = params.get("state") || "pending";
+
+/** @param {unknown} value */
+function escapeHtml(value) {
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch],
+  );
+}
 const apiBase = (window.PAYMENTGATE_API_BASE || "http://127.0.0.1:3000").replace(
   /\/$/,
   "",
@@ -144,11 +158,11 @@ function resolveRequiredConfirmations(asset, network, apiValue) {
 
 /**
  * Mode D guest memo UI only when the asset/network supports memo (§2.4).
- * Demo override: ?memoSupported=1
+ * Demo override (local demo only): ?memoSupported=1
  */
 function memoSupportedFor(asset, network) {
-  if (params.get("memoSupported") === "1") return true;
-  if (params.get("memoSupported") === "0") return false;
+  if (DEMO_ENABLED && params.get("memoSupported") === "1") return true;
+  if (DEMO_ENABLED && params.get("memoSupported") === "0") return false;
   const row = assetNetworkUi(asset, network);
   if (row) return row.memoSupported;
   return false;
@@ -442,7 +456,7 @@ function networkMarkTileHtml(network, tileClass) {
     return `<span class="${tileClass}" style="background:${mark.bg}" title="${mark.title}">${mark.svg}</span>`;
   }
   const letter = n ? n.slice(0, 1).toUpperCase() : "?";
-  return `<span class="${tileClass} ${tileClass}--fallback" title="${n || "network"}">${letter}</span>`;
+  return `<span class="${tileClass} ${tileClass}--fallback" title="${escapeHtml(n || "network")}">${escapeHtml(letter)}</span>`;
 }
 
 function assetMarkTileHtml(asset, tileClass) {
@@ -451,7 +465,7 @@ function assetMarkTileHtml(asset, tileClass) {
   if (mark) {
     return `<span class="${tileClass}" style="background:${mark.bg}" title="${mark.title}">${mark.svg}</span>`;
   }
-  return `<span class="${tileClass} ${tileClass}--fallback" title="${a || "asset"}">${(a || "?").slice(0, 1)}</span>`;
+  return `<span class="${tileClass} ${tileClass}--fallback" title="${escapeHtml(a || "asset")}">${escapeHtml((a || "?").slice(0, 1))}</span>`;
 }
 
 function qrMarkHtml(network) {
@@ -949,9 +963,11 @@ if (orderId) {
   markPayLoading();
   loadLiveOrder(orderId);
   pollTimer = window.setInterval(() => loadLiveOrder(orderId), POLL_MS);
-} else {
+} else if (DEMO_ENABLED) {
   setSourceBanner("");
   paint(demoView());
+} else {
+  paintInvalid();
 }
 
 document.querySelectorAll("[data-copy]").forEach((btn) => {

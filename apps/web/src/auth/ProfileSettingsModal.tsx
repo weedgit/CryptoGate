@@ -268,6 +268,9 @@ export function ProfileSettingsModal({
   const [firstName, setFirstName] = useState(session.firstName ?? "");
   const [lastName, setLastName] = useState(session.lastName ?? "");
   const [email, setEmail] = useState(session.email);
+  const [emailPassword, setEmailPassword] = useState("");
+  const emailChanging =
+    email.trim().toLowerCase() !== (session.email ?? "").trim().toLowerCase();
   const [phone, setPhone] = useState(formatPhoneInput(session.phone ?? ""));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
@@ -358,7 +361,11 @@ export function ProfileSettingsModal({
           setError("Enter a valid email address");
           return;
         }
-        const result = await sendEmailOtp(next);
+        if (emailChanging && !emailPassword) {
+          setError("Enter your current password to change your sign-in email");
+          return;
+        }
+        const result = await sendEmailOtp(next, emailChanging ? emailPassword : undefined);
         if (result.session) applySession(result.session);
         if (result.status === "already_verified") {
           setOk("Email already verified.");
@@ -788,6 +795,22 @@ export function ProfileSettingsModal({
                   />
                 </FieldControl>
               </label>
+              {emailChanging ? (
+                <label className="owner-acct__field owner-acct__field--wide">
+                  <span className="owner-acct__label">Current password</span>
+                  <FieldControl>
+                    <input
+                      className="field-control"
+                      type="password"
+                      value={emailPassword}
+                      disabled={saving}
+                      placeholder="Needed to change your sign-in email"
+                      onChange={(e) => setEmailPassword(e.target.value)}
+                      autoComplete="current-password"
+                    />
+                  </FieldControl>
+                </label>
+              ) : null}
               <label className="owner-acct__field owner-acct__field--wide">
                 <span className="owner-acct__label">Phone</span>
                 <FieldControl leading={<PhoneGlyph />}>
@@ -943,7 +966,10 @@ export function ProfileSettingsModal({
           onResend={async () => {
             try {
               if (otpModal.channel === "email") {
-                const result = await sendEmailOtp(otpModal.destination);
+                const result = await sendEmailOtp(
+                  otpModal.destination,
+                  emailChanging ? emailPassword : undefined,
+                );
                 if (result.session) applySession(result.session);
                 return { code: result.devCode };
               }

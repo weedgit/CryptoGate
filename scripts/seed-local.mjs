@@ -19,6 +19,7 @@ import { insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
 import { ensureDefaultFeeTierBands } from "../apps/api/src/platform-settings/fee-tier-store.mjs";
 
 import { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 export { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL };
 
@@ -100,6 +101,7 @@ async function ensureUser(email, password) {
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   console.log("Wiping application data…");

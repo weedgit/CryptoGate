@@ -1,6 +1,6 @@
 # UAT client review — demo logins
 
-**Environment:** TRON Nile testnet · password for all accounts below: **`User1234567890!`**
+**Environment:** TRON Nile testnet · password for all accounts below: the seed password in `scripts/seed-constants.mjs` (shared privately, never on a production database)
 
 Use these accounts for user-guide screenshots. Data includes 3 months of payment orders, service bills, commission invoices, platform team, and two agent trees under PaymentGate.
 

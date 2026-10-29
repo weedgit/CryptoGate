@@ -15,3 +15,14 @@ describe("watcher watch-only env", () => {
     assert.doesNotThrow(() => assertWatchOnlyEnv({ TRON_API_KEY: "quota" }));
   });
 });
+
+describe("watcher stub flags", () => {
+  it("are refused in production only", async () => {
+    const { assertNoStubsInProduction } = await import("../src/assert-watch-only-env.mjs");
+    assert.throws(() =>
+      assertNoStubsInProduction({ NODE_ENV: "production", WATCHER_STUB_TRANSFERS: "[]" }),
+    );
+    assert.doesNotThrow(() => assertNoStubsInProduction({ NODE_ENV: "production" }));
+    assert.doesNotThrow(() => assertNoStubsInProduction({ WATCHER_STUB_TRANSFERS: "[]" }));
+  });
+});

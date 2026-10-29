@@ -89,9 +89,22 @@ async function ingestScope(pool, filter, opts = {}) {
     (o) => o.status === "pending_payment",
   ).length;
 
+  // Oldest order per address: where a chain client starts scanning an address it has no cursor
+  // for (fresh process, outage), so transfers since the order are never skipped (H5).
+  /** @type {Record<string, number>} */
+  const addressSinceMs = {};
+  for (const o of matchCandidates) {
+    const address = String(o.receiveAddress ?? "").trim();
+    const created = Date.parse(String(o.createdAt ?? ""));
+    if (!address || !Number.isFinite(created)) continue;
+    addressSinceMs[address] = Math.min(addressSinceMs[address] ?? created, created);
+  }
+
   const polled = await chain.listRecentTransfers({
     ...filter,
     watchedAddresses,
+    allWatchedAddresses: Object.keys(addressSinceMs),
+    addressSinceMs,
   });
 
   const hinted = drainTransferHints({
@@ -287,6 +300,27 @@ async function processPriorityConfirmations(pool, opts = {}) {
 }
 
 /**
+ * Scope runs still in flight. The timeout below only stops waiting; the run itself keeps
+ * going, so a slow scope used to stack another run every tick (review M9).
+ * @type {Map<string, Promise<Record<string, unknown>>>}
+ */
+const inFlightScopes = new Map();
+
+/**
+ * Start a scope run unless the previous one for the same scope is still running.
+ * @param {{ asset: string, network: string }} filter
+ * @param {() => Promise<Record<string, unknown>>} start
+ * @returns {Promise<Record<string, unknown>> | null} null when skipped
+ */
+export function runScopeOnce(filter, start) {
+  const key = scopeCursorKey(filter.asset, filter.network);
+  if (inFlightScopes.has(key)) return null;
+  const run = start().finally(() => inFlightScopes.delete(key));
+  inFlightScopes.set(key, run);
+  return run;
+}
+
+/**
  * @param {Promise<Record<string, unknown>>} promise
  * @param {number} timeoutMs
  * @param {{ asset: string, network: string }} filter
@@ -441,15 +475,24 @@ export async function runTick(ctx) {
         scopeConcurrency,
         async (filter) => {
           try {
-            return await withScopeTimeout(
+            const run = runScopeOnce(filter, () =>
               ingestScope(pool, filter, {
                 confirmConcurrency,
                 addressPollBudget,
                 matchOnly,
               }),
-              ctx.config.scopeTimeoutMs,
-              filter,
             );
+            if (!run) {
+              return {
+                asset: filter.asset,
+                network: filter.network,
+                mode: "error",
+                phase: "m3-40",
+                error: "previous scope run still in progress",
+                pendingPaymentOrders: 0,
+              };
+            }
+            return await withScopeTimeout(run, ctx.config.scopeTimeoutMs, filter);
           } catch (err) {
             return {
               asset: filter.asset,
