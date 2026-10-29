@@ -57,3 +57,19 @@ describe("resolveWatchScopes", () => {
     assert.deepEqual(scopes, [{ asset: "USDT", network: "ethereum" }]);
   });
 });
+
+describe("scope runs never stack (M9)", () => {
+  it("skips a scope whose previous run is still in flight", async () => {
+    const { runScopeOnce } = await import("../src/tick.mjs");
+    const filter = { asset: "USDT", network: "solana" };
+    let release;
+    const first = runScopeOnce(filter, () => new Promise((resolve) => (release = resolve)));
+    assert.ok(first);
+    assert.equal(runScopeOnce(filter, async () => ({})), null);
+    release({ ok: true });
+    await first;
+    const again = runScopeOnce(filter, async () => ({ ok: 2 }));
+    assert.deepEqual(await again, { ok: 2 });
+  });
+});
+
