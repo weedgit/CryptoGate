@@ -82,3 +82,22 @@ describe("session payload", () => {
     assert.equal(agentOwner.mfaEnforcement, false);
   });
 });
+
+describe("session cookie Secure default", () => {
+  it("is Secure in production unless explicitly disabled", async () => {
+    const { sessionCookie } = await import("../src/http/cookies.mjs");
+    const saved = { NODE_ENV: process.env.NODE_ENV, SECURE: process.env.SESSION_COOKIE_SECURE };
+    try {
+      process.env.NODE_ENV = "production";
+      delete process.env.SESSION_COOKIE_SECURE;
+      assert.match(sessionCookie("t"), /; Secure/);
+      process.env.SESSION_COOKIE_SECURE = "false";
+      assert.doesNotMatch(sessionCookie("t"), /Secure/);
+    } finally {
+      if (saved.NODE_ENV === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = saved.NODE_ENV;
+      if (saved.SECURE === undefined) delete process.env.SESSION_COOKIE_SECURE;
+      else process.env.SESSION_COOKIE_SECURE = saved.SECURE;
+    }
+  });
+});

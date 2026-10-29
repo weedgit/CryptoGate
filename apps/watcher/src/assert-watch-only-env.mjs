@@ -34,3 +34,17 @@ export function assertWatchOnlyEnv(env = process.env) {
     );
   }
 }
+
+/**
+ * Stub transfers / confirmations fabricate payments: refuse them in production.
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+export function assertNoStubsInProduction(env = process.env) {
+  if (env.NODE_ENV !== "production") return;
+  const stubs = Object.keys(env).filter(
+    (key) => key.startsWith("WATCHER_STUB_") && String(env[key] ?? "").trim(),
+  );
+  if (stubs.length > 0) {
+    throw new Error(`Refusing watcher stub settings in production (${stubs.join(", ")}).`);
+  }
+}

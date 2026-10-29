@@ -217,6 +217,26 @@ describe("auth HTTP (no DB)", () => {
     }
   });
 
+  it("refuses request bodies over the 2 MB cap", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const res = await fetch(`${base}/v1/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "a@b.c", password: "x".repeat(3 * 1024 * 1024) }),
+      });
+      assert.equal(res.status, 400);
+    } finally {
+      await close(server);
+    }
+  });
+
   it("rejects role assign without session", async () => {
     const server = createServer((req, res) => {
       handleRequest(req, res).catch((err) => {

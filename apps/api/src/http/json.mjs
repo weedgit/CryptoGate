@@ -50,6 +50,9 @@ export function sendCsv(res, status, filename, body) {
   res.end(body);
 }
 
+/** Largest request body the API reads. */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
 /**
  * Exact request bytes (HMAC hashes this, not a trimmed JSON view).
  * @param {import("node:http").IncomingMessage & { rawBody?: Buffer }} req
@@ -58,7 +61,13 @@ export function sendCsv(res, status, filename, body) {
 export async function readRawBody(req) {
   if (Buffer.isBuffer(req.rawBody)) return req.rawBody;
   const chunks = [];
+  let size = 0;
   for await (const chunk of req) {
+    size += chunk.length;
+    // Same ceiling as nginx (client_max_body_size 2m) for direct connections.
+    if (size > MAX_BODY_BYTES) {
+      throw Object.assign(new Error("Request body too large"), { code: "body_too_large" });
+    }
     chunks.push(chunk);
   }
   req.rawBody = Buffer.concat(chunks);

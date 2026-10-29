@@ -15,6 +15,8 @@ import { insertServiceBill } from "../../src/service-bills/service-bill-store.mj
 export const apiRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 process.env.POS_PIN_PEPPER ??= "integration-test-pos-pin-pepper-0123456789abcdef";
+// Contact OTPs are echoed in responses only for explicit dev/test runs.
+process.env.NODE_ENV ??= "test";
 
 /**
  * Mark a test user as TOTP-enrolled. Platform and merchant Owners/Admins must enroll before

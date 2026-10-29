@@ -3,9 +3,10 @@
  * M1: poll loop + graceful shutdown; M3: chain ingest + matching.
  */
 import { runWatcherLoop } from "./loop.mjs";
-import { assertWatchOnlyEnv } from "./assert-watch-only-env.mjs";
+import { assertNoStubsInProduction, assertWatchOnlyEnv } from "./assert-watch-only-env.mjs";
 
 assertWatchOnlyEnv();
+assertNoStubsInProduction();
 
 /** Default one tick (CI / `node main.mjs`). Production: `pnpm start` passes `--loop`. */
 const once = !process.argv.includes("--loop");

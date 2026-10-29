@@ -182,6 +182,7 @@ export async function revokeContactOtp(userId, channel) {
   );
 }
 
+/** OTP codes in API responses only for explicit dev/test runs (an unset NODE_ENV fails closed). */
 export function echoOtpInHttp() {
-  return process.env.NODE_ENV !== "production";
+  return process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 }
