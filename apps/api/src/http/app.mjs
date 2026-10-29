@@ -200,7 +200,8 @@ import {
   handleMarkCommissionPayoutPaid,
   handleMarkCommissionPayoutPaidBatch,
 } from "../commercial/commission-payout-routes.mjs";
-import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
+import { applyCorsHeaders, handleCorsPreflight, isAllowedMutationOrigin } from "./cors.mjs";
+import { getSessionToken } from "./cookies.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
 import { rejectUnverifiedLiveAction } from "../auth/contact-verification.mjs";
@@ -249,6 +250,16 @@ export async function handleRequest(req, res) {
   const method = req.method ?? "GET";
 
   if (applyRateLimits(req, res, { method, path })) return;
+
+  if (
+    !["GET", "HEAD", "OPTIONS"].includes(method) &&
+    path.startsWith("/v1/") &&
+    getSessionToken(req.headers.cookie) &&
+    !isAllowedMutationOrigin(req)
+  ) {
+    sendError(res, 403, "cross_site_request", "Cross-site request refused");
+    return;
+  }
 
   if (method === "GET" && path === "/health") {
     const payload = await getHealthPayload({ checkDb: true });

@@ -72,5 +72,11 @@ export async function readRawBody(req) {
 export async function readJsonBody(req) {
   const raw = (await readRawBody(req)).toString("utf8").trim();
   if (raw === "") return {};
+  // A cross-site <form> can only send text/plain, urlencoded or multipart bodies; requiring
+  // JSON takes those CSRF vectors off every mutation (review D8).
+  const type = String(req.headers?.["content-type"] ?? "").toLowerCase();
+  if (!/^application\/([a-z0-9.+-]*\+)?json\b/.test(type)) {
+    throw new SyntaxError("Request body must be application/json");
+  }
   return JSON.parse(raw);
 }

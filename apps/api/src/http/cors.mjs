@@ -16,6 +16,28 @@ export function listCorsAllowedOrigins() {
 }
 
 /**
+ * Cookie-authenticated mutations must come from the portal's own origin (nginx serves the SPA
+ * and /v1 on one host) or an allowed pay-page origin. SameSite=Lax still lets sibling
+ * *.boostbunny.io sites send the cookie, so the browser's Origin / Sec-Fetch-Site decide
+ * (review D8). Requests without either header (native POS app, server-to-server) pass.
+ * @param {import("node:http").IncomingMessage} req
+ * @returns {boolean}
+ */
+export function isAllowedMutationOrigin(req) {
+  const origin = typeof req.headers.origin === "string" ? req.headers.origin.trim() : "";
+  if (origin) {
+    if (listCorsAllowedOrigins().includes(origin)) return true;
+    try {
+      return new URL(origin).host === String(req.headers.host ?? "");
+    } catch {
+      return false;
+    }
+  }
+  const site = String(req.headers["sec-fetch-site"] ?? "").toLowerCase();
+  return site !== "cross-site" && site !== "same-site";
+}
+
+/**
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  * @returns {boolean} true when Origin was allowed
