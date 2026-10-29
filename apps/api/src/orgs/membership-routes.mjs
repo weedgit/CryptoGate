@@ -12,6 +12,7 @@ import {
 import { collectAncestorOrgIds } from "./org-ancestry.mjs";
 import {
   canAssignOrgRole,
+  canChangeOwnerSeat,
   canInviteToOrg,
   canListOrgUsers,
   canManageMemberPosPin,
@@ -202,6 +203,22 @@ export async function handleInviteOrgUser(req, res, orgId) {
     sendError(res, 403, "forbidden", "Only the org Owner may manage team");
     return;
   }
+  if (
+    role === "owner" &&
+    !canChangeOwnerSeat({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
+      memberCount,
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_seat_forbidden",
+      "Only this org's Owner or the Platform Owner may add an Owner",
+    );
+    return;
+  }
 
   // One email = one account in one org with one role; registered emails cannot be invited.
   const registered = await findUserByEmail(email);
@@ -359,9 +376,32 @@ export async function handleAssignOrgUserRole(req, res, orgId, userId) {
     return;
   }
 
+  if (caller.userId === userId) {
+    sendError(res, 403, "cannot_change_own_role", "You cannot change your own role");
+    return;
+  }
+
   const existing = await findMembership(orgId, userId, { includePaused: true });
   if (!existing) {
     sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  if (
+    (existing.role === "owner" || role === "owner") &&
+    existing.role !== role &&
+    !canChangeOwnerSeat({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
+      memberCount: await countOrgMemberships(orgId),
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_seat_forbidden",
+      "Only this org's Owner or the Platform Owner may add or remove an Owner",
+    );
     return;
   }
 
@@ -439,6 +479,23 @@ export async function handleSetOrgUserStatus(req, res, orgId, userId) {
   const existing = await findMembership(orgId, userId, { includePaused: true });
   if (!existing) {
     sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  if (
+    existing.role === "owner" &&
+    !canChangeOwnerSeat({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
+      memberCount: await countOrgMemberships(orgId),
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_seat_forbidden",
+      "Only this org's Owner or the Platform Owner may pause or resume an Owner",
+    );
     return;
   }
 
@@ -522,6 +579,23 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
   const existing = await findMembership(orgId, userId, { includePaused: true });
   if (!existing) {
     sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  if (
+    existing.role === "owner" &&
+    !canChangeOwnerSeat({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
+      memberCount: await countOrgMemberships(orgId),
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_seat_forbidden",
+      "Only this org's Owner or the Platform Owner may remove an Owner",
+    );
     return;
   }
 

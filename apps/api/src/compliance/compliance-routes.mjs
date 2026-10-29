@@ -10,6 +10,7 @@ import { canComplianceOverride } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
+import { NotificationEventType, notifyMerchantOrg } from "../notifications/notify.mjs";
 import { forceNetworkSettlementAddress } from "../settlement/settlement-store.mjs";
 import { toSettlementAddress } from "../settlement/settlement-rules.mjs";
 import { upsertMatchingModeSettings } from "../matching-mode/matching-mode-store.mjs";
@@ -89,6 +90,15 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
     return;
   }
   const parsed = validated.parsed;
+  if (!canComplianceOverride(caller, parsed.overrideType)) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Only the Platform Owner may force a settlement address",
+    );
+    return;
+  }
 
   const user = await findUserMfaById(caller.userId);
   if (!user?.mfaEnrolled || !user.mfaSecret) {
@@ -156,11 +166,22 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
     effectMeta.asset = s.asset;
     effectMeta.assets = s.assets;
     effectMeta.network = s.network;
+    effectMeta.address = s.address;
     effectMeta.addressPreview = `${s.address.slice(0, 8)}…`;
     resultPayload = {
       settlement: toSettlementAddress(forced[0]),
       settlements: forced.map(toSettlementAddress),
     };
+    const rail = `${s.network} wallet (${s.assets.join(", ")})`;
+    notifyMerchantOrg(orgId, NotificationEventType.SettlementAddress, {
+      subject: `Settlement address changed by PaymentGate compliance — ${rail}`,
+      lines: [
+        `PaymentGate compliance set the ${rail} settlement address for ${org.name} (reason: ${parsed.reasonCode}). It is active now.`,
+        `Address: ${s.address}`,
+        "If you were not told about this change, contact PaymentGate support immediately.",
+      ],
+      path: "settings/settlement",
+    });
   }
 
   let overrideRow;

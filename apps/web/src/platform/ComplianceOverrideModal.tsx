@@ -11,6 +11,7 @@ import {
   type OrgAccount,
 } from "./api";
 import { settlementNetworkRows } from "./MerchantSettlementPanel";
+import { sessionIsPlatformOwner } from "./org";
 
 type Props = {
   org: OrgAccount;
@@ -190,7 +191,10 @@ export function ComplianceOverrideModal({
             setOverrideType(e.target.value as ComplianceOverrideType)
           }
         >
-          {TYPES.map((t) => (
+          {TYPES.filter(
+            // Forcing a settlement address is Platform Owner only (API enforces too).
+            (t) => t.value !== "settlement_address" || sessionIsPlatformOwner(session),
+          ).map((t) => (
             <option key={t.value} value={t.value}>
               {t.label}
             </option>

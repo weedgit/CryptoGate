@@ -100,6 +100,17 @@ export function canInviteToOrg(p) {
 }
 
 /**
+ * Seating or unseating an `owner` hands over settlement control (README: Merchant Owner or
+ * Platform Owner only), so it needs that org's Owner or the Platform Owner. Anyone else who may
+ * manage the team (Platform Administrator, parent Owner/Admin) may only seat the first Owner of
+ * an org that has no members yet.
+ * @param {{ platformOwner?: boolean, roleOnOrg: string | null, memberCount: number }} p
+ */
+export function canChangeOwnerSeat(p) {
+  return p.platformOwner === true || p.roleOnOrg === "owner" || p.memberCount === 0;
+}
+
+/**
  * Role changes: org Owner, or Platform Owner/Administrator.
  * @param {{ platformOwner?: boolean, platformOperator?: boolean, roleOnOrg: string | null }} p
  */

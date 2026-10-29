@@ -79,10 +79,15 @@ export function canManagePlatform(caller) {
  * Support-edit a team member's sign-in identity — email, phone, password, and
  * verification status: Platform Owner / Administrator only. Org Owners cannot
  * (members change their own contact by OTP and use Forgot password).
- * @param {{ platformOperator: boolean }} caller
+ * An Owner's (or any platform staff member's) sign-in is a takeover of settlement control,
+ * so only the Platform Owner may support-edit those.
+ * @param {{ platformOperator: boolean, platformOwner?: boolean }} caller
+ * @param {{ targetRole?: string | null, orgType?: string | null }} [target]
  */
-export function canSupportEditMemberAccount(caller) {
-  return caller.platformOperator === true;
+export function canSupportEditMemberAccount(caller, target = {}) {
+  if (caller.platformOperator !== true) return false;
+  if (caller.platformOwner === true) return true;
+  return target.targetRole !== "owner" && target.orgType !== "platform";
 }
 
 /**
@@ -353,10 +358,15 @@ export function canExportPaymentOrders(caller) {
 
 /**
  * Platform Owner or Administrator may apply B7 compliance overrides (logged + MFA).
- * @param {{ platformOperator: boolean }} caller
+ * Forcing a settlement address moves where merchant funds go, so that type is Platform Owner
+ * only (fund rails invariant below).
+ * @param {{ platformOperator: boolean, platformOwner?: boolean }} caller
+ * @param {string} [overrideType]
  */
-export function canComplianceOverride(caller) {
-  return caller.platformOperator === true;
+export function canComplianceOverride(caller, overrideType) {
+  if (caller.platformOperator !== true) return false;
+  if (overrideType === "settlement_address") return caller.platformOwner === true;
+  return true;
 }
 
 /**
