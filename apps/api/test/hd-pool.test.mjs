@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { HDKey } from "@scure/bip32";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
+import { supportsModeSHdDerivation } from "@paymentgate/domain";
 import {
   HD_DERIVE_PATH_TEMPLATE,
   deriveReceiveAddressFromXpub,
   deriveTronAddressFromXpub,
   deriveEvmAddressFromXpub,
-  deriveSolanaAddressFromXpub,
   tronAddressFromPublicKey,
   xpubFingerprint,
 } from "../src/mode-s/hd-derive.mjs";
@@ -60,18 +60,15 @@ describe("hd derive (watch-only)", () => {
     assert.throws(() => deriveReceiveAddressFromXpub("not_a_network", VECTOR_XPUB, 0), /not available/);
   });
 
-  it("derives Solana addresses from ed25519 extended pubkey", () => {
+  it("refuses Solana HD derivation (H2: non-standard, collapsed indexes)", () => {
     const scalar = Uint8Array.from(
       Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "hex"),
     ).slice(0, 32);
     const pub = ed25519.getPublicKey(scalar);
     const extended = Buffer.concat([pub, pub]).toString("hex");
-    const a0 = deriveSolanaAddressFromXpub(extended, 0);
-    const a1 = deriveSolanaAddressFromXpub(extended, 1);
-    assert.notEqual(a0, a1);
-    assert.match(a0, /^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
-    const routed = deriveReceiveAddressFromXpub("solana", extended, 0);
-    assert.equal(routed, a0);
+    assert.equal(supportsModeSHdDerivation("solana"), false);
+    assert.throws(() => deriveReceiveAddressFromXpub("solana", extended, 0), /not available/);
+    assert.throws(() => deriveReceiveAddressFromXpub("solana", VECTOR_XPUB, 0), /not available/);
   });
 
   it("rejects invalid xPub and index", () => {

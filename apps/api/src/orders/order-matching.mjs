@@ -6,6 +6,7 @@ import {
   MODE_D_RESERVED_STATUSES,
   MODE_S_CONFLICT_STATUSES,
 } from "@paymentgate/matching";
+import { supportsModeSHdDerivation } from "@paymentgate/domain";
 import { findNetworkSettlementAddress } from "../settlement/settlement-store.mjs";
 import { hasActiveXpub } from "../xpub/xpub-store.mjs";
 import { claimHdPoolAddress } from "../mode-s/hd-pool-store.mjs";
@@ -101,7 +102,13 @@ export async function assignOnOrderCreate(input) {
 
   const mainSettlementAddress = settlement.address;
 
-  if (input.matchingMode === "B") {
+  // Solana (and any network without a wallet-standard derivation) never gets HD addresses (H2).
+  const xPubConfigured =
+    supportsModeSHdDerivation(input.network) &&
+    (await hasActiveXpub(xpubOrgId, input.asset, input.network, input.client));
+
+  // Mode S without HD addresses falls back to the main address, so it needs Mode B's block.
+  if (input.matchingMode === "B" || (input.matchingMode === "S" && !xPubConfigured)) {
     const blocking = await findModeBSameAmountCreateConflict(input.client, {
       merchantId: input.orgId,
       merchantIds: walletGroupOrgIds,
@@ -122,12 +129,6 @@ export async function assignOnOrderCreate(input) {
     }
   }
 
-  const xPubConfigured = await hasActiveXpub(
-    xpubOrgId,
-    input.asset,
-    input.network,
-    input.client,
-  );
   /** @type {import("@paymentgate/matching").ListReservedPayableAmounts} */
   const listPayables = (query) =>
     listReservedPayableAmounts(input.client, {

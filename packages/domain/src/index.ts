@@ -553,9 +553,14 @@ export function sameAddress(network: string, a: string, b: string): boolean {
   return canonicalAddress(network, a) === canonicalAddress(network, b);
 }
 
-/** True when Mode S can derive HD pool addresses for this network. */
+/**
+ * True when Mode S can derive HD pool addresses for this network. Solana is off (review H2):
+ * its SLIP-0010 public derivation is not one any wallet uses, so funds sent to derived
+ * addresses could not be spent, and indexes collapsed onto a few addresses.
+ */
 export function supportsModeSHdDerivation(network: string): boolean {
-  return resolveHdDerivationFamily(network) != null;
+  const family = resolveHdDerivationFamily(network);
+  return family != null && family !== HdDerivationFamily.Solana;
 }
 
 /** Merchant-facing derivation path template for pool addresses. */

@@ -32,6 +32,32 @@ describe("xpub rules", () => {
     );
   });
 
+  it("rejects raw ed25519 / Solana key material and Solana Mode S (H2)", () => {
+    const hex32 = "11".repeat(32);
+    const hex64 = "22".repeat(64);
+    for (const xPub of [hex32, hex64]) {
+      const r = validateXpubBody({ asset: "USDT", network: "tron", xPub, mfaCode: "123456" });
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "invalid_xpub");
+    }
+    const solanaKey = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
+    const sol = validateXpubBody({
+      asset: "USDC",
+      network: "solana",
+      xPub: solanaKey,
+      mfaCode: "123456",
+    });
+    assert.equal(sol.ok, false);
+    const solXpub = validateXpubBody({
+      asset: "USDC",
+      network: "solana",
+      xPub: "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8",
+      mfaCode: "123456",
+    });
+    assert.equal(solXpub.ok, false);
+    assert.ok(["mode_s_network_unsupported", "asset_network_disabled"].includes(solXpub.code));
+  });
+
   it("rejects private extended keys", () => {
     const rejected = validateXpubBody({
       asset: "USDT",
