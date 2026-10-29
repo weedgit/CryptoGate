@@ -35,6 +35,16 @@ export function assertApiKeyScope(caller, res, scope) {
 }
 
 /**
+ * Only route (besides requireSession-only auth routes) open to a session whose account still
+ * has to replace its temporary password.
+ * @param {import("node:http").IncomingMessage} req
+ */
+function isPasswordChangePendingAllowed(req) {
+  const path = new URL(req.url ?? "/", "http://localhost").pathname;
+  return (req.method ?? "GET") === "GET" && path === "/v1/auth/session";
+}
+
+/**
  * Session cookie or signed X-Api-Key. Guest /payment and login skip this.
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
@@ -76,13 +86,21 @@ export async function requireCaller(req, res) {
   const session = await requireSession(req, res);
   if (!session) return null;
 
+  const user = await findUserById(session.userId);
   // Enrolled users must complete TOTP before privileged routes (verify uses requireSession only).
-  if (!session.mfaVerified) {
-    const user = await findUserById(session.userId);
-    if (user?.mfaEnrolled) {
-      sendError(res, 401, "mfa_required", "MFA verification required");
-      return null;
-    }
+  if (!session.mfaVerified && user?.mfaEnrolled) {
+    sendError(res, 401, "mfa_required", "MFA verification required");
+    return null;
+  }
+  // Temporary (invite) passwords: nothing but the session read until changed (C2).
+  if (!session.terminalId && user?.mustChangePassword && !isPasswordChangePendingAllowed(req)) {
+    sendError(
+      res,
+      403,
+      "password_change_required",
+      "Change your temporary password to continue",
+    );
+    return null;
   }
 
   const caller = await loadCaller(session.userId);

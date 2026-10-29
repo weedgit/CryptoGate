@@ -82,7 +82,7 @@ export const AUDIT_ACTIONS = {
   platformSiteRailSettingsPut: "platform_site_rail_settings_put",
 };
 
-const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;
+const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub|signin/i;
 
 /**
  * Drop secret-like keys; keep scalars only.

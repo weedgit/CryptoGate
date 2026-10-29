@@ -281,9 +281,6 @@ export async function handleInviteOrgUser(req, res, orgId) {
       role,
       provisioned: true,
       orgType: org.type,
-      ...(org.type === "agent" || org.type === "merchant"
-        ? { initialSignIn: temporaryPassword }
-        : {}),
     },
   });
 

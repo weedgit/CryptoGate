@@ -112,6 +112,15 @@ export async function handleLogin(req, res) {
     sendError(res, 401, "invalid_credentials", GENERIC_LOGIN_ERROR);
     return;
   }
+  if (user.passwordExpired) {
+    sendError(
+      res,
+      401,
+      "password_expired",
+      "This temporary password has expired. Use Forgot password to set a new one.",
+    );
+    return;
+  }
 
   const profile = await findUserById(user.id);
   const ttlMs = ttlMsForUser(profile ?? user);
