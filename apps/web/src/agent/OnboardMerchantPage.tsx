@@ -22,7 +22,7 @@ import {
 } from "../shared/registeredEmails";
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
-import { agentRoute } from "../shared/portalRouting";
+import { agentRoute, isSafeInAppPath } from "../shared/portalRouting";
 import { onboardInviteCreds } from "../shared/onboardInviteState";
 import { inviteOwnerOrRollback } from "../shared/onboardOwnerInvite";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
@@ -44,7 +44,7 @@ function agentOnboardReturnPath(
   fallback: string,
 ): string {
   const raw = searchParams.get("returnTo")?.trim();
-  if (!raw || !raw.startsWith(agentReturnPrefix())) return fallback;
+  if (!raw || !isSafeInAppPath(raw, agentReturnPrefix())) return fallback;
   return raw;
 }
 

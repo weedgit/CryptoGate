@@ -1,4 +1,4 @@
-import { platformRoute } from "../shared/portalRouting";
+import { isSafeInAppPath, platformRoute } from "../shared/portalRouting";
 
 function platformReturnPrefix(): string {
   const base = platformRoute();
@@ -11,7 +11,7 @@ export function onboardReturnPath(
   fallback: string,
 ): string {
   const raw = searchParams.get("returnTo")?.trim();
-  if (!raw || !raw.startsWith(platformReturnPrefix())) return fallback;
+  if (!raw || !isSafeInAppPath(raw, platformReturnPrefix())) return fallback;
   return raw;
 }
 

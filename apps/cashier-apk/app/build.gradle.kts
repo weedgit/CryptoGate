@@ -108,8 +108,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Without keystore.properties, sign with the debug key so a release build (no debuggable
-            // overhead, much faster Compose) still installs over the debug build on test devices.
+            // Without keystore.properties a release is signed with the debug key; that needs an
+            // explicit opt-in (checked when release tasks run, see the end of this file).
             signingConfig = signingConfigs.getByName(if (hasReleaseKeystore) "release" else "debug")
         }
     }
@@ -160,4 +160,18 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+}
+
+// A release signed with the shared debug key can be replaced by anyone holding that key.
+// Test-device builds without keystore.properties must opt in:
+//   ./gradlew assembleRelease -PallowDebugSignedRelease=true
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any { it.project == project && it.name.contains("Release") }
+    val allowDebugSigned = project.findProperty("allowDebugSignedRelease") == "true"
+    val releaseKeystore = rootProject.file("keystore.properties")
+    if (buildsRelease && !releaseKeystore.exists() && !allowDebugSigned) {
+        throw GradleException(
+            "Release build needs keystore.properties (or -PallowDebugSignedRelease=true for test devices)",
+        )
+    }
 }

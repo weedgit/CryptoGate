@@ -39,6 +39,21 @@ API_ONLY = {
 }
 
 
+WATCHER_KEYS = {"DATABASE_URL", "NODE_ENV", "CHAINLINK_ETH_RPC_URL"}
+WATCHER_PREFIXES = (
+    "WATCHER_", "DEFAULT_", "CHAIN_", "TRON_", "ETH_", "SOLANA_", "BSC_", "POLYGON_",
+    "ARBITRUM_", "BASE_", "TON_", "BITCOIN_",
+)
+
+
+def is_watcher_key(key: str) -> bool:
+    return (
+        key in WATCHER_KEYS
+        or key.startswith(WATCHER_PREFIXES)
+        or key.endswith("_CHAIN_ENV")
+    )
+
+
 def parse_env(text: str) -> dict[str, str]:
     out: dict[str, str] = {}
     for raw in text.splitlines():
@@ -126,7 +141,7 @@ def main() -> int:
     merged = parse_env(text)
     merged["NODE_ENV"] = "production"
 
-    def write_env(path: Path, keys: list[str] | None = None, exclude: set[str] | None = None) -> None:
+    def write_env(path: Path, allow=None, exclude: set[str] | None = None) -> None:
         lines = ["# generated — do not commit", "NODE_ENV=production"]
         seen = {"NODE_ENV"}
         for k, v in merged.items():
@@ -134,16 +149,17 @@ def main() -> int:
                 continue
             if exclude and k in exclude:
                 continue
-            if keys is not None and k not in keys and k not in API_ONLY:
-                # watcher/api both get chain + db keys
-                pass
+            if allow is not None and not allow(k):
+                continue
             lines.append(f"{k}={v}")
             seen.add(k)
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         os.chmod(path, 0o600)
 
     write_env(ETC / "api.env")
-    write_env(ETC / "watcher.env", exclude={"SESSION_SECRET", "SESSION_COOKIE_SECURE", "PASSWORD_RESET_EXPOSE_LINK"})
+    # The watcher only needs the database and chain settings; SMTP, Twilio, pepper and API
+    # secrets stay out of its env (the old key filter was a no-op).
+    write_env(ETC / "watcher.env", allow=is_watcher_key)
 
     (ETC / "postgres.env").write_text(
         f"POSTGRES_USER=paymentgate\nPOSTGRES_DB=paymentgate\nPOSTGRES_PASSWORD={secrets['PG_PASSWORD']}\n",

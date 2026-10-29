@@ -5,6 +5,7 @@ import com.paymentgate.cashier.ui.CustomerView
 import com.paymentgate.cashier.ui.CustomerScreen
 import androidx.compose.runtime.SideEffect
 import android.view.MotionEvent
+import android.view.WindowManager
 import android.view.KeyEvent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -153,6 +154,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // PIN pad and payment QR must not end up in screenshots, recordings or the recents list.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
         val app = application as CashierApplication
         val chainEnv = BuildConfig.CHAIN_ENV
