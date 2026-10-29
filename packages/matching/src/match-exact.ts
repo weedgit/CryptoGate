@@ -151,21 +151,8 @@ export async function matchExactPayable(
     };
   }
 
-  const unexpired = eligible.filter((o) => !isExpired(o, nowMs));
-  const expired = eligible.filter((o) => isExpired(o, nowMs));
-
-  if (unexpired.length === 0) {
-    return {
-      status: OrderStatus.PaymentAnomaly,
-      orderIds: expired.map((o) => o.orderId),
-      reason: "late_payment_after_expiry",
-    };
-  }
-
-  const exact: MatchCandidateOrder[] = [];
-  const amountMismatches: MatchCandidateOrder[] = [];
-
-  for (const order of unexpired) {
+  /** True when this payment settles `order` (exact, within dust, or Mode B tolerance). */
+  const amountFits = (order: MatchCandidateOrder): boolean => {
     const payable = order.payableAmount.trim();
     if (!AMOUNT_RE.test(payable)) {
       throw new Error(
@@ -185,20 +172,57 @@ export async function matchExactPayable(
     // Merchant underpayTolerance remains Mode B only; dustFloor is platform-wide.
     const allowUnderpayTol = expectedMode === "B" && tolMinor > 0n;
     const delta = absDiff(payableMinor, receivedMinor);
+    // Dust absorbs rounding, never more than 1% of the order: 0.1 TRX dust on a 1 TRX order
+    // accepted a 10% underpay (review M3).
+    const percent = payableMinor / 100n;
+    const orderDust = dustMinor < percent ? dustMinor : percent;
 
-    if (payableMinor === receivedMinor) {
-      exact.push(order);
-    } else if (dustMinor > 0n && delta <= dustMinor) {
-      exact.push(order);
-    } else if (
+    if (payableMinor === receivedMinor) return true;
+    if (orderDust > 0n && delta <= orderDust) return true;
+    return (
       allowUnderpayTol &&
       receivedMinor < payableMinor &&
       payableMinor - receivedMinor <= tolMinor
-    ) {
-      exact.push(order);
-    } else {
-      amountMismatches.push(order);
+    );
+  };
+
+  // Expiry is judged when the payment was mined, not when the watcher saw it (review M2).
+  const paidAtMs =
+    input.transferAtMs !== undefined && Number.isFinite(input.transferAtMs)
+      ? input.transferAtMs
+      : nowMs;
+  const unexpired = eligible.filter((o) => !isExpired(o, paidAtMs));
+  const expired = eligible.filter((o) => isExpired(o, paidAtMs));
+
+  if (unexpired.length === 0) {
+    // Only expired orders this payment fits are flagged: a top-up to a shared address must not
+    // flag a week of expired orders. A one-order HD address (Mode S) still flags its order.
+    const fitting = expired.filter(amountFits);
+    const flagged =
+      fitting.length > 0
+        ? fitting
+        : expectedMode === "S" && expired.length === 1
+          ? expired
+          : [];
+    if (flagged.length === 0) {
+      return {
+        status: OrderStatus.PendingPayment,
+        reason: "no_open_order_at_address",
+      };
     }
+    return {
+      status: OrderStatus.PaymentAnomaly,
+      orderIds: flagged.map((o) => o.orderId),
+      reason: "late_payment_after_expiry",
+    };
+  }
+
+  const exact: MatchCandidateOrder[] = [];
+  const amountMismatches: MatchCandidateOrder[] = [];
+
+  for (const order of unexpired) {
+    if (amountFits(order)) exact.push(order);
+    else amountMismatches.push(order);
   }
 
   if (exact.length >= 2) {

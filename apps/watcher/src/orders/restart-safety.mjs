@@ -37,8 +37,13 @@ export function matchWriteNeeded(row, result, transfer) {
     return { write: false, reason: "status_not_matchable" };
   }
 
-  // Late payment after API expiry → anomaly (M3-43).
-  if (row.status === "expired" && result.status !== "payment_anomaly") {
+  // Late payment after API expiry → anomaly (M3-43). Matching judges expiry at block time, so
+  // `verifying` for an expired row means it was paid before expiry and seen late (M2).
+  if (
+    row.status === "expired" &&
+    result.status !== "payment_anomaly" &&
+    result.status !== "verifying"
+  ) {
     return { write: false, reason: "expired_not_anomaly" };
   }
 

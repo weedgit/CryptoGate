@@ -1,3 +1,4 @@
+import { getAssetNetworkConfig } from "@paymentgate/domain";
 import { sameAddressSql } from "../db/address-sql.mjs";
 import { getPool } from "../db/pool.mjs";
 import { toPaymentOrder } from "./order-map.mjs";
@@ -312,6 +313,15 @@ function excludeIdOf(query) {
   return query.excludeOrderId ?? null;
 }
 
+/**
+ * Matching treats amounts within the dust floor as the same payment, so create-time
+ * same-amount checks must too (review M3).
+ * @param {{ asset: string, network: string }} query
+ */
+function dustFloorOf(query) {
+  return getAssetNetworkConfig(query.asset, query.network)?.dustFloor ?? "0";
+}
+
 export async function listReservedPayableAmounts(client, query) {
   const ids = merchantIdsOf(query);
   const { rows } = await client.query(
@@ -395,7 +405,7 @@ export async function findModeBSameAmountCreateConflict(client, query) {
        AND o.asset = $2
        AND o.network = $3
        AND ${sameAddressSql("o.receive_address", "$4", query.network)}
-       AND o.payable_amount::numeric = $5::numeric
+       AND abs(o.payable_amount::numeric - $5::numeric) <= $8::numeric
        AND o.status = ANY($6::text[])
        AND ($7::uuid IS NULL OR o.id <> $7::uuid)
      ORDER BY o.created_at ASC
@@ -408,6 +418,7 @@ export async function findModeBSameAmountCreateConflict(client, query) {
       query.payableAmount,
       [...query.statuses],
       excludeIdOf(query),
+      dustFloorOf(query),
     ],
   );
   const row = rows[0];
