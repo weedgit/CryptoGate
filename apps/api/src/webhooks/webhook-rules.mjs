@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import { isIP } from "node:net";
+import { isPublicAddress } from "./webhook-egress.mjs";
 import { WebhookEventType } from "@paymentgate/domain";
 
 export const WEBHOOK_MAX_PER_ORG = 5;
@@ -29,12 +31,27 @@ export function validateWebhookUrl(url, opts = {}) {
   } catch {
     return { ok: false, code: "invalid_url", message: "url must be a valid URI" };
   }
-  if (parsed.protocol === "https:") return { ok: true };
+  if (parsed.username || parsed.password) {
+    return { ok: false, code: "invalid_url", message: "Webhook URL must not contain credentials" };
+  }
   if (
     allowLocalHttp &&
     parsed.protocol === "http:" &&
     (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost")
   ) {
+    return { ok: true };
+  }
+  if (parsed.protocol === "https:") {
+    // Internal targets are refused here and again at delivery, where DNS is checked (H11).
+    const host = parsed.hostname.replace(/^\[|\]$/g, "");
+    const internalName = host === "localhost" || /\.(localhost|local|internal)$/i.test(host);
+    if (internalName || (isIP(host) && !isPublicAddress(host))) {
+      return {
+        ok: false,
+        code: "invalid_url",
+        message: "Webhook URL must point to a public internet host",
+      };
+    }
     return { ok: true };
   }
   return {

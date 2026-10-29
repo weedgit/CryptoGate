@@ -91,6 +91,7 @@ run("node", [
   "apps/api/test/rate-limit.test.mjs",
   "apps/api/test/webhook-rules.test.mjs",
   "apps/api/test/webhook-deliver.test.mjs",
+  "apps/api/test/webhook-egress.test.mjs",
   "apps/api/test/webhook-fanout.test.mjs",
   "apps/api/test/dashboard-events.test.mjs",
   "apps/api/test/service-bill-rules.test.mjs",
