@@ -188,7 +188,8 @@ export async function listOrdersByReceiveAddresses(db, filter) {
  */
 export async function listOrdersAwaitingConfirmations(db, filter) {
   const { rows } = await db.query(
-    `SELECT id, status, tx_hash, confirmations, required_confirmations, network
+    `SELECT id, status, tx_hash, confirmations, required_confirmations, network,
+            receive_address
      FROM payment_orders
      WHERE asset = $1
        AND network = $2
@@ -205,6 +206,7 @@ export async function listOrdersAwaitingConfirmations(db, filter) {
     requiredConfirmations: row.required_confirmations,
     network: row.network,
     asset: filter.asset,
+    receiveAddress: row.receive_address,
   }));
 }
 
@@ -214,7 +216,8 @@ export async function listOrdersAwaitingConfirmations(db, filter) {
  */
 export async function listAllOrdersAwaitingConfirmations(db) {
   const { rows } = await db.query(
-    `SELECT id, status, tx_hash, confirmations, required_confirmations, network, asset
+    `SELECT id, status, tx_hash, confirmations, required_confirmations, network, asset,
+            receive_address
      FROM payment_orders
      WHERE status = ANY($1::text[])
        AND tx_hash IS NOT NULL
@@ -229,6 +232,7 @@ export async function listAllOrdersAwaitingConfirmations(db) {
     requiredConfirmations: row.required_confirmations,
     network: row.network,
     asset: row.asset,
+    receiveAddress: row.receive_address,
   }));
 }
 
@@ -402,6 +406,7 @@ export async function listKnownTxHashes(db, input) {
  *   confirmations: number,
  *   nextStatus: string | null,
  *   reorg?: boolean,
+ *   anomalyReason?: string,
  * }} input
  */
 export async function applyConfirmationUpdate(db, input) {
@@ -445,7 +450,7 @@ export async function applyConfirmationUpdate(db, input) {
         input.confirmations,
         input.orderId,
         WATCHER_CONFIRM_STATUSES,
-        decision.reason ?? "reorg",
+        input.anomalyReason ?? decision.reason ?? "reorg",
       ],
     );
     return {

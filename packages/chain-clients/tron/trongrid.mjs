@@ -5,6 +5,7 @@
 
 import { fetchWithTimeout } from "../fetch-timeout.mjs";
 import { mapPool } from "../map-pool.mjs";
+import { tronBase58ToHex } from "./address.mjs";
 import { minorToMajor } from "./amount.mjs";
 import {
   DEFAULT_TRON_MAX_ATTEMPTS,
@@ -87,6 +88,8 @@ export async function withTronRetry(fn, opts = {}) {
  * @param {{ contractAddress: string, decimals: number, network?: string, asset?: string }} cfg
  */
 export function mapTrc20Row(row, cfg) {
+  // The trc20 feed also lists Approval events (from = owner, to = spender, value = allowance).
+  if (String(row.type ?? "").toLowerCase() !== "transfer") return null;
   const token = /** @type {Record<string, unknown>} */ (row.token_info ?? {});
   const tokenAddr = String(token.address ?? "").trim();
   if (
@@ -292,11 +295,53 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
   };
 }
 
+/** keccak256("Transfer(address,address,uint256)") */
+const TRC20_TRANSFER_TOPIC =
+  "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+/**
+ * @param {unknown} value
+ */
+function bareHex(value) {
+  return String(value ?? "").trim().toLowerCase().replace(/^0x/, "");
+}
+
+/**
+ * Why a mined tx must not be credited, from `gettransactioninfobyid`; null when it is fine.
+ * TRC-20 txs must have succeeded and emitted a Transfer from the configured contract
+ * (to `toAddress` when given).
+ * @param {Record<string, unknown> | null | undefined} info
+ * @param {{ nativeAsset?: boolean, contractAddress?: string }} cfg
+ * @param {string} [toAddress]
+ * @returns {string | null}
+ */
+export function tronTransactionFailureReason(info, cfg, toAddress) {
+  if (String(info?.result ?? "").toUpperCase() === "FAILED") return "tx_failed";
+  const receipt = /** @type {Record<string, unknown>} */ (info?.receipt ?? {});
+  if (receipt.result !== undefined && String(receipt.result).toUpperCase() !== "SUCCESS") {
+    return "tx_failed";
+  }
+  if (cfg.nativeAsset || !cfg.contractAddress) return null;
+
+  const contractHex = tronBase58ToHex(cfg.contractAddress)?.slice(2);
+  const toHex = toAddress ? tronBase58ToHex(toAddress)?.slice(2) : undefined;
+  const logs = Array.isArray(info?.log) ? info.log : [];
+  const hasTransfer = logs.some((log) => {
+    const address = bareHex(log?.address);
+    const topics = Array.isArray(log?.topics) ? log.topics.map(bareHex) : [];
+    if (topics[0] !== TRC20_TRANSFER_TOPIC || topics.length < 3) return false;
+    if (!contractHex || address.slice(-40) !== contractHex) return false;
+    return !toHex || topics[2].slice(-40) === toHex;
+  });
+  return hasTransfer ? null : "tx_not_token_transfer";
+}
+
 /**
  * Confirmations = current block − tx block (floored at 0).
- * Presence distinguishes reorg (tx gone) from RPC failure (M4-21).
- * @param {{ txHash: string, fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
- * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' }>}
+ * Presence distinguishes reorg (tx gone) from RPC failure (M4-21); `failed` = mined but
+ * reverted, or not a Transfer of the configured token to `toAddress`.
+ * @param {{ txHash: string, toAddress?: string, fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
+ * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' | 'failed', failureReason?: string }>}
  */
 export async function fetchTransactionConfirmationState(input) {
   const cfg = getTronRuntimeConfig(input?.asset, input?.network);
@@ -330,6 +375,11 @@ export async function fetchTransactionConfirmationState(input) {
         confirmations: 0,
         presence: empty || !Number.isFinite(txBlock) ? "missing" : "missing",
       };
+    }
+
+    const failureReason = tronTransactionFailureReason(info, cfg, input.toAddress);
+    if (failureReason) {
+      return { confirmations: 0, presence: "failed", failureReason };
     }
 
     const now = await withTronRetry(

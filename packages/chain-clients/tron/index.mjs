@@ -168,6 +168,7 @@ export async function getTransactionConfirmationState(args) {
 
   return fetchTransactionConfirmationState({
     txHash: args.txHash,
+    toAddress: args.toAddress,
     asset: args?.asset ?? AssetCode.USDT,
     network: args?.network ?? cfg.network,
     fetchImpl: args.fetch,

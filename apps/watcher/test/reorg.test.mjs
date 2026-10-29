@@ -87,6 +87,46 @@ describe("@paymentgate/watcher reorg handling (M4-21)", () => {
     });
     assert.equal(applied[0].nextStatus, "payment_anomaly");
     assert.equal(applied[0].reorg, true);
+    assert.equal(applied[0].anomalyReason, "tx_missing_reorg");
     assert.equal(outcomes[0].reorg, true);
+  });
+
+  it("flags a failed tx as anomaly even before any confirmation (C1)", () => {
+    const d = evaluateConfirmationObservation(
+      { status: "verifying", confirmations: 0, requiredConfirmations: 19 },
+      { confirmations: 0, presence: "failed", failureReason: "tx_not_token_transfer" },
+    );
+    assert.equal(d.nextStatus, "payment_anomaly");
+    assert.equal(d.reason, "tx_not_token_transfer");
+    assert.equal(d.skipWrite, false);
+  });
+
+  it("processConfirmationBatch passes receive address and failure reason", async () => {
+    const applied = [];
+    const seen = [];
+    await processConfirmationBatch({
+      orders: [
+        {
+          orderId: "o1",
+          status: "verifying",
+          txHash: "0xdead",
+          confirmations: 0,
+          requiredConfirmations: 19,
+          network: "tron",
+          receiveAddress: "TPayee",
+        },
+      ],
+      getConfirmationState: async (args) => {
+        seen.push(args);
+        return { confirmations: 0, presence: "failed", failureReason: "tx_failed" };
+      },
+      apply: async (args) => {
+        applied.push(args);
+        return { updated: 1 };
+      },
+    });
+    assert.equal(seen[0].toAddress, "TPayee");
+    assert.equal(applied[0].nextStatus, "payment_anomaly");
+    assert.equal(applied[0].anomalyReason, "tx_failed");
   });
 });

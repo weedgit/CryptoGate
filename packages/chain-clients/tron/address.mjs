@@ -114,3 +114,44 @@ export function filterLikelyTronAddresses(addresses) {
   }
   return { valid, skipped };
 }
+
+/**
+ * Base58Check Tron account → 21-byte hex (`41…`, lowercase), or null.
+ * @param {string | null | undefined} address
+ */
+export function tronBase58ToHex(address) {
+  if (!isLikelyTronAddress(address)) return null;
+  const decoded = decodeBase58(String(address).trim());
+  if (!decoded) return null;
+  return Buffer.from(decoded.subarray(0, TRON_ADDRESS_PAYLOAD_LEN)).toString("hex");
+}
+
+/**
+ * @param {Uint8Array} bytes
+ */
+function encodeBase58(bytes) {
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros += 1;
+  let n = 0n;
+  for (const b of bytes) n = (n << 8n) | BigInt(b);
+  let out = "";
+  while (n > 0n) {
+    out = TRON_BASE58_ALPHABET[Number(n % 58n)] + out;
+    n /= 58n;
+  }
+  return "1".repeat(zeros) + out;
+}
+
+/**
+ * 21-byte hex (`41…`) or 20-byte hex (EVM-style, with or without 0x) → Base58Check, or null.
+ * @param {string | null | undefined} hex
+ */
+export function tronHexToBase58(hex) {
+  if (typeof hex !== "string") return null;
+  let h = hex.trim().toLowerCase().replace(/^0x/, "");
+  if (/^[0-9a-f]{40}$/.test(h)) h = `41${h}`;
+  if (!/^41[0-9a-f]{40}$/.test(h)) return null;
+  const payload = Buffer.from(h, "hex");
+  const checksum = sha256(sha256(payload)).subarray(0, TRON_CHECKSUM_LEN);
+  return encodeBase58(Buffer.concat([payload, checksum]));
+}

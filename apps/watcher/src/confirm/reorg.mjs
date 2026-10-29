@@ -16,7 +16,8 @@ export const REORG_CONFIRMATION_DROP_MIN = 3;
  * }} order
  * @param {{
  *   confirmations: number,
- *   presence: 'confirmed' | 'missing' | 'unknown',
+ *   presence: 'confirmed' | 'missing' | 'unknown' | 'failed',
+ *   failureReason?: string,
  * }} observation
  * @returns {{
  *   nextStatus: string | null,
@@ -52,6 +53,17 @@ export function evaluateConfirmationObservation(order, observation) {
       reason: "rpc_unknown",
       skipWrite: true,
       reorg: false,
+    };
+  }
+
+  // Mined but reverted, or not the transfer we matched: never complete.
+  if (presence === "failed") {
+    return {
+      nextStatus: OrderStatus.PaymentAnomaly,
+      confirmations: 0,
+      reason: observation.failureReason ?? "tx_failed",
+      skipWrite: false,
+      reorg: true,
     };
   }
 

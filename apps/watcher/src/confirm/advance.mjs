@@ -32,17 +32,20 @@ export function nextConfirmationStatus(order) {
  *     confirmations: number,
  *     requiredConfirmations: number,
  *     network: string,
+ *     receiveAddress?: string | null,
  *   }>,
  *   getConfirmations?: (args: { txHash: string, network: string }) => Promise<number>,
  *   getConfirmationState?: (args: {
  *     txHash: string,
  *     network: string,
- *   }) => Promise<{ confirmations: number, presence: string }>,
+ *     toAddress?: string,
+ *   }) => Promise<{ confirmations: number, presence: string, failureReason?: string }>,
  *   apply: (args: {
  *     orderId: string,
  *     confirmations: number,
  *     nextStatus: string | null,
  *     reorg?: boolean,
+ *     anomalyReason?: string,
  *   }) => Promise<{ updated: number, skipped?: boolean, reason?: string, alreadyCurrent?: boolean }>,
  *   concurrency?: number,
  * }} input
@@ -58,12 +61,13 @@ export async function processConfirmationBatch(input) {
       };
     }
 
-    /** @type {{ confirmations: number, presence: string }} */
+    /** @type {{ confirmations: number, presence: string, failureReason?: string }} */
     let observation;
     if (input.getConfirmationState) {
       observation = await input.getConfirmationState({
         txHash: order.txHash,
         network: order.network,
+        toAddress: order.receiveAddress ?? undefined,
       });
     } else {
       const confirmations = await input.getConfirmations({
@@ -99,6 +103,7 @@ export async function processConfirmationBatch(input) {
       confirmations: decision.confirmations,
       nextStatus: decision.nextStatus,
       reorg: decision.reorg,
+      anomalyReason: decision.reorg ? decision.reason : undefined,
     });
 
     return {
