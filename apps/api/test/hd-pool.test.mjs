@@ -88,10 +88,10 @@ describe("hd derive (watch-only)", () => {
 });
 
 describe("hd pool rules", () => {
-  it("defaults cooldown to 24h and maps pool rows without xPub", () => {
+  it("defaults cooldown to 8 days and maps pool rows without xPub", () => {
     const prev = process.env.HD_POOL_COOLDOWN_MS;
     delete process.env.HD_POOL_COOLDOWN_MS;
-    assert.equal(hdPoolCooldownMs(), 86_400_000);
+    assert.equal(hdPoolCooldownMs(), 8 * 86_400_000, "covers the 7-day late-payment window (M14)");
     if (prev === undefined) delete process.env.HD_POOL_COOLDOWN_MS;
     else process.env.HD_POOL_COOLDOWN_MS = prev;
 
