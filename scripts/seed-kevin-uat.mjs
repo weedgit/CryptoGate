@@ -28,6 +28,7 @@ import { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 import { markUatDemoUserReady } from "./seed-uat-user-ready.mjs";
 import { NILE_HD_WALLETS, UAT_SETTLEMENT } from "./seed-nile-wallets.mjs";
 import { seedDemoAvatars } from "./seed-avatars.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MARKER_ORG = "Kevin Agent";
@@ -357,6 +358,7 @@ async function ensureSampleOrders(
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);

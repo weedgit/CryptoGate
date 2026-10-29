@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -97,6 +98,7 @@ export async function seedDemoAvatars(pool = getPool()) {
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const { updated, missing, filledBlank } = await seedDemoAvatars();
   console.log(`\nSeed avatars: mapped ${updated} known user(s).`);
   if (filledBlank) {

@@ -22,6 +22,7 @@ import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 import { loadSeedEnv } from "./seed-env.mjs";
 import { resolvePlatformFeeNetwork } from "../packages/domain/dist/index.js";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const AGENTS = 100;
 const MERCHANTS = 100;
@@ -108,6 +109,7 @@ async function insertOwner(client, { email, firstName, lastName, phone, orgId, p
 
 async function main() {
   loadSeedEnv();
+  await guardSeedDatabase();
   const pool = getPool();
   const passwordHash = await hashPassword(SEED_PASSWORD);
   const client = await pool.connect();

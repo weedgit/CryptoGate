@@ -20,6 +20,7 @@ import {
   NILE_PAYER_WALLETS,
   UAT_SETTLEMENT,
 } from "./seed-nile-wallets.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 /** Matches DashboardPage DEFAULT_RATE_PREFS — three Metrics cards. */
 export const METRICS_RATE_PAIRS = [
@@ -281,6 +282,7 @@ function merchantKeyFromName(name) {
 
 async function main() {
   loadSeedEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const merchant = await resolveSeedMerchant(pool);

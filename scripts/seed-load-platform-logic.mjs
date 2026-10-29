@@ -25,6 +25,7 @@ import { findUserByEmail } from "../apps/api/src/auth/users.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 import { loadSeedEnv } from "./seed-env.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const MATCHING_CYCLE = ["B", "C", "D", "S"];
 const COMMISSION_CYCLE = ["10", "12", "15", "18", "20"];
@@ -433,6 +434,7 @@ async function upsertCommissionPayoutSeed(pool, row) {
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);

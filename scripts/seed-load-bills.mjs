@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadSeedEnv } from "./seed-env.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const PREFIX = "Load";
 const BILL_REF_PREFIX = "load-bill-";
@@ -83,6 +84,7 @@ async function insertBill(pool, bill) {
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const { rows: merchants } = await pool.query(

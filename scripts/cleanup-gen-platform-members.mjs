@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const deleteUsers = process.argv.includes("--delete-users");
@@ -40,6 +41,7 @@ function loadEnv() {
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL required");
   }

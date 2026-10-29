@@ -37,6 +37,7 @@ import { markUatDemoUserReady } from "./seed-uat-user-ready.mjs";
 import { patchCommissionTreeSnapshots } from "./seed-commission-helpers.mjs";
 import { NILE_HD_WALLETS, UAT_SETTLEMENT } from "./seed-nile-wallets.mjs";
 import { seedDemoAvatars } from "./seed-avatars.mjs";
+import { guardSeedDatabase } from "./seed-guard.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ONBOARD_AT = "2026-06-01T00:00:00.000Z";
@@ -629,6 +630,7 @@ async function seedEnterpriseFixedRates(pool) {
 
 async function main() {
   loadEnv();
+  await guardSeedDatabase();
   const pool = getPool();
 
   const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);
