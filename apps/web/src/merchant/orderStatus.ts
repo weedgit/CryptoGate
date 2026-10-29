@@ -32,6 +32,7 @@ const ANOMALY_REASON_LABELS: Record<string, string> = {
   tx_not_token_transfer: "The transaction was not a token transfer to this address",
   tx_missing_reorg: "The transaction disappeared from the chain (reorg)",
   confirmations_dropped_reorg: "The transaction lost confirmations (reorg)",
+  tx_dropped: "The transaction was never confirmed on-chain (dropped)",
 };
 
 /** What staff should do after reading the reason. */

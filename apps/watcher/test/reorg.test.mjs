@@ -63,9 +63,11 @@ describe("@paymentgate/watcher reorg handling (M4-21)", () => {
     assert.equal(d.reason, "confirmations_dropped_reorg");
   });
 
-  it("processConfirmationBatch applies reorg anomaly", async () => {
+  it("processConfirmationBatch applies reorg anomaly after repeated missing answers (M7)", async () => {
+    const { resetMissingStreaks } = await import("../src/confirm/advance.mjs");
+    resetMissingStreaks();
     const applied = [];
-    const outcomes = await processConfirmationBatch({
+    const run = () => processConfirmationBatch({
       orders: [
         {
           orderId: "o1",
@@ -85,10 +87,37 @@ describe("@paymentgate/watcher reorg handling (M4-21)", () => {
         return { updated: 1 };
       },
     });
+    await run();
+    await run();
+    assert.equal(applied.length, 0, "one or two empty answers are not a reorg");
+    const outcomes = await run();
     assert.equal(applied[0].nextStatus, "payment_anomaly");
     assert.equal(applied[0].reorg, true);
     assert.equal(applied[0].anomalyReason, "tx_missing_reorg");
     assert.equal(outcomes[0].reorg, true);
+  });
+
+  it("a single empty receipt does not flip a paid order (M7)", () => {
+    const d = evaluateConfirmationObservation(
+      { status: "verifying", confirmations: 8, requiredConfirmations: 19 },
+      { confirmations: 0, presence: "missing", missingCount: 1 },
+    );
+    assert.equal(d.skipWrite, true);
+    assert.equal(d.reason, "tx_missing_recheck");
+  });
+
+  it("a tx never mined for 30 minutes becomes a dropped anomaly (M7)", () => {
+    const waiting = evaluateConfirmationObservation(
+      { status: "verifying", confirmations: 0, requiredConfirmations: 19 },
+      { confirmations: 0, presence: "missing", missingCount: 5, missingForMs: 5 * 60 * 1000 },
+    );
+    assert.equal(waiting.skipWrite, true);
+    const dropped = evaluateConfirmationObservation(
+      { status: "verifying", confirmations: 0, requiredConfirmations: 19 },
+      { confirmations: 0, presence: "missing", missingCount: 60, missingForMs: 31 * 60 * 1000 },
+    );
+    assert.equal(dropped.nextStatus, "payment_anomaly");
+    assert.equal(dropped.reason, "tx_dropped");
   });
 
   it("flags a failed tx as anomaly even before any confirmation (C1)", () => {

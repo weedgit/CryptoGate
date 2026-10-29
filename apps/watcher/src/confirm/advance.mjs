@@ -10,6 +10,18 @@ import { evaluateConfirmationObservation } from "./reorg.mjs";
 const DEFAULT_CONFIRM_CONCURRENCY = 8;
 
 /**
+ * Consecutive "missing" answers per order (process-local; a restart only makes the watcher
+ * more patient). Lets reorg handling ignore a single empty receipt (review M7).
+ * @type {Map<string, { count: number, firstMs: number }>}
+ */
+const missingStreaks = new Map();
+
+/** Test helper. */
+export function resetMissingStreaks() {
+  missingStreaks.clear();
+}
+
+/**
  * Pure decision when only a confirmation count is known (unit tests / stubs).
  * Prefer evaluateConfirmationObservation when presence is available.
  * @param {{ status: string, confirmations: number, requiredConfirmations: number }} order
@@ -48,6 +60,7 @@ export function nextConfirmationStatus(order) {
  *     anomalyReason?: string,
  *   }) => Promise<{ updated: number, skipped?: boolean, reason?: string, alreadyCurrent?: boolean }>,
  *   concurrency?: number,
+ *   nowMs?: number,
  * }} input
  */
 export async function processConfirmationBatch(input) {
@@ -77,6 +90,20 @@ export async function processConfirmationBatch(input) {
       observation = { confirmations, presence: "confirmed" };
     }
 
+    if (observation.presence === "missing") {
+      const nowMs = input.nowMs ?? Date.now();
+      const streak = missingStreaks.get(order.orderId) ?? { count: 0, firstMs: nowMs };
+      streak.count += 1;
+      missingStreaks.set(order.orderId, streak);
+      observation = {
+        ...observation,
+        missingCount: streak.count,
+        missingForMs: nowMs - streak.firstMs,
+      };
+    } else if (observation.presence !== "unknown") {
+      missingStreaks.delete(order.orderId);
+    }
+
     const decision = evaluateConfirmationObservation(
       {
         status: order.status,
@@ -85,6 +112,7 @@ export async function processConfirmationBatch(input) {
       },
       observation,
     );
+    if (!decision.skipWrite && decision.nextStatus) missingStreaks.delete(order.orderId);
 
     if (decision.skipWrite) {
       return {

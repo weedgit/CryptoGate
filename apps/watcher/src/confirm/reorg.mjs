@@ -7,6 +7,13 @@ import { OrderStatus } from "@paymentgate/domain";
 
 /** Drop of this many confirmations while tx still present → anomaly. */
 export const REORG_CONFIRMATION_DROP_MIN = 3;
+/**
+ * Consecutive "tx missing" answers before acting. One empty receipt from a lagging or
+ * load-balanced node used to flip a paid order to anomaly for good (review M7).
+ */
+export const MISSING_OBSERVATIONS_FOR_REORG = 3;
+/** A matched tx never seen in a block for this long was dropped from the mempool (M7). */
+export const DROPPED_TX_AFTER_MS = 30 * 60 * 1000;
 
 /**
  * @param {{
@@ -18,6 +25,8 @@ export const REORG_CONFIRMATION_DROP_MIN = 3;
  *   confirmations: number,
  *   presence: 'confirmed' | 'missing' | 'unknown' | 'failed',
  *   failureReason?: string,
+ *   missingCount?: number,
+ *   missingForMs?: number,
  * }} observation
  * @returns {{
  *   nextStatus: string | null,
@@ -69,7 +78,9 @@ export function evaluateConfirmationObservation(order, observation) {
 
   // Tx disappeared after we already saw confirmations (reorg / rollback).
   if (presence === "missing") {
-    if (stored >= 1) {
+    const missingCount = Number(observation.missingCount ?? MISSING_OBSERVATIONS_FOR_REORG);
+    const confirmedMissing = missingCount >= MISSING_OBSERVATIONS_FOR_REORG;
+    if (stored >= 1 && confirmedMissing) {
       return {
         nextStatus: OrderStatus.PaymentAnomaly,
         confirmations: 0,
@@ -78,11 +89,24 @@ export function evaluateConfirmationObservation(order, observation) {
         reorg: true,
       };
     }
-    // Just matched; TronGrid may lag — wait.
+    if (
+      stored === 0 &&
+      confirmedMissing &&
+      Number(observation.missingForMs ?? 0) >= DROPPED_TX_AFTER_MS
+    ) {
+      return {
+        nextStatus: OrderStatus.PaymentAnomaly,
+        confirmations: 0,
+        reason: "tx_dropped",
+        skipWrite: false,
+        reorg: true,
+      };
+    }
+    // Just matched (indexers lag) or a single empty answer: look again next tick.
     return {
       nextStatus: null,
       confirmations: stored,
-      reason: "tx_not_indexed_yet",
+      reason: stored >= 1 ? "tx_missing_recheck" : "tx_not_indexed_yet",
       skipWrite: true,
       reorg: false,
     };
