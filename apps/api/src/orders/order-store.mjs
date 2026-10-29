@@ -441,7 +441,8 @@ export async function findModeBSameAmountCreateConflict(client, query) {
 }
 
 /**
- * Mode S conflict port — any open order with the same payable (main or HD).
+ * Mode S conflict port — any open order with the same payable (main or HD). Compared as
+ * numbers within the dust floor: as text, "100" and "100.00" did not conflict (review M11).
  * @param {import("pg").Pool | import("pg").PoolClient} client
  * @param {{
  *   merchantId: string,
@@ -459,7 +460,7 @@ export async function hasModeSSameAmountConflict(client, query) {
      WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
-       AND payable_amount = $4
+       AND abs(payable_amount::numeric - $4::numeric) <= $7::numeric
        AND status = ANY($5::text[])
        AND ($6::uuid IS NULL OR id <> $6::uuid)
      LIMIT 1`,
@@ -470,6 +471,7 @@ export async function hasModeSSameAmountConflict(client, query) {
       query.payableAmount,
       [...query.statuses],
       excludeIdOf(query),
+      dustFloorOf(query),
     ],
   );
   return rows.length > 0;

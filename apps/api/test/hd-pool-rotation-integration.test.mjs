@@ -88,3 +88,40 @@ describePg("HD pool after xPub rotation (M10)", () => {
     }
   });
 });
+
+describePg("Mode S same-amount conflict (M11)", () => {
+  it("treats 100 and 100.00 as the same amount", async () => {
+    const { hasModeSSameAmountConflict } = await import("../src/orders/order-store.mjs");
+    const { createUser } = await import("../src/auth/users.mjs");
+    const platform = await findPlatformOrg();
+    const merchant = (
+      await insertOrgAccount({
+        type: "merchant",
+        name: `m11-merchant-${Date.now()}`,
+        parentId: platform.id,
+        maxAgentDepth: null,
+      })
+    ).row.id;
+    const creator = await createUser({
+      email: `m11-${Date.now()}@paymentgate.local`,
+      password: "M11CreatorPass1234!",
+    });
+    await getPool().query(
+      `INSERT INTO payment_orders (
+         org_id, created_by, order_number, status, matching_mode, payable_amount,
+         receive_address, address_source, asset, network, expires_at,
+         required_confirmations, idempotency_key, idempotency_body_hash, invoice_amount_usd)
+       VALUES ($1, $2, $3, 'pending_payment', 'S', '100', 'TMainS', 'main', 'USDT', 'tron',
+               now() + interval '1 hour', 19, $3, 'h', '100')`,
+      [merchant, creator.id, `M11-${Date.now()}`],
+    );
+    const conflict = await hasModeSSameAmountConflict(getPool(), {
+      merchantId: merchant,
+      asset: "USDT",
+      network: "tron",
+      payableAmount: "100.00",
+      statuses: ["pending_payment"],
+    });
+    assert.equal(conflict, true);
+  });
+});
