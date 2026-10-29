@@ -28,9 +28,10 @@ import {
 import { generateTotpSecret, otpauthUrl } from "../auth/totp.mjs";
 import { sendMfaFailure, verifyUserTotp } from "../auth/mfa-attempts.mjs";
 import {
+  consumePasswordResetToken,
+  countRecentPasswordResetTokens,
   createPasswordResetToken,
-  findValidPasswordReset,
-  markPasswordResetUsed,
+  voidPasswordResetTokensForUser,
 } from "../auth/password-reset-store.mjs";
 import { validatePasswordReset } from "../auth/password-policy.mjs";
 import {
@@ -389,25 +390,44 @@ export async function handleForgotPassword(req, res) {
   }
 
   const user = await findUserByEmail(email);
-  if (user) {
-    const rawToken = await createPasswordResetToken(user.id);
-    await insertAuditEvent({
-      actorUserId: user.id,
-      action: AUDIT_ACTIONS.passwordResetRequest,
-    });
-    const resetUrl = passwordResetUrl(rawToken);
-    await sendPasswordResetEmail({ to: user.email, resetUrl });
-    if (process.env.PASSWORD_RESET_EXPOSE_LINK === "true") {
+  if (user && process.env.PASSWORD_RESET_EXPOSE_LINK === "true") {
+    // Local / UAT only: hand the link back instead of mailing it.
+    const rawToken = await issuePasswordReset(user);
+    if (rawToken) {
       sendJson(res, 200, {
         resetPath: inviteRelativePathForToken(rawToken),
-        resetUrl,
+        resetUrl: passwordResetUrl(rawToken),
       });
       return;
     }
+  } else if (user) {
+    // Token + SMTP work happens after the response, so the reply time is the same whether or
+    // not the address has an account (review M19).
+    issuePasswordReset(user).catch((err) => {
+      if (process.env.NODE_ENV !== "test") console.error("password reset mail failed", err);
+    });
   }
 
   res.writeHead(204);
   res.end();
+}
+
+/** Reset links per user per 15 minutes; more requests are dropped silently. */
+const RESET_LINKS_PER_15_MIN = 3;
+
+/**
+ * @param {{ id: string, email: string }} user
+ * @returns {Promise<string | null>} raw token, or null when capped
+ */
+async function issuePasswordReset(user) {
+  if ((await countRecentPasswordResetTokens(user.id, 15)) >= RESET_LINKS_PER_15_MIN) return null;
+  const rawToken = await createPasswordResetToken(user.id);
+  await insertAuditEvent({
+    actorUserId: user.id,
+    action: AUDIT_ACTIONS.passwordResetRequest,
+  });
+  await sendPasswordResetEmail({ to: user.email, resetUrl: passwordResetUrl(rawToken) });
+  return rawToken;
 }
 
 const PROFILE_LOCALES = new Set([
@@ -662,7 +682,8 @@ export async function handleResetPassword(req, res) {
     return;
   }
 
-  const match = await findValidPasswordReset(token);
+  // Spent before the password changes: the same link cannot be used twice concurrently.
+  const match = await consumePasswordResetToken(token);
   if (!match) {
     sendError(res, 410, "token_expired", "This reset link has expired or is invalid");
     return;
@@ -670,7 +691,7 @@ export async function handleResetPassword(req, res) {
 
   await updateUserPassword(match.userId, password);
   await revokeAllSessionsForUser(match.userId);
-  await markPasswordResetUsed(token);
+  await voidPasswordResetTokensForUser(match.userId);
   await markEmailVerified(match.userId);
   await insertAuditEvent({
     actorUserId: match.userId,

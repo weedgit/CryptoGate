@@ -79,4 +79,35 @@ describe("password reset HTTP", { skip: !hasPostgres() }, () => {
       await closePool();
     }
   });
+
+  it("a reset request keeps outstanding links; a completed reset voids them; one use only (M19)", async () => {
+    const email = `reset-m19-${Date.now()}@local.paymentgate`;
+    await createUser({ email, password: "LocalReview1!" });
+    const { server, base } = await startTestServer();
+    try {
+      const user = await findUserByEmail(email);
+      const inviteLink = await createPasswordResetToken(user.id);
+      const forgot = await fetch(`${base}/v1/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      assert.equal(forgot.status, 204);
+      assert.ok(await findValidPasswordReset(inviteLink), "someone else's reset request must not kill the invite link");
+
+      const second = await createPasswordResetToken(user.id);
+      const reset = (token) =>
+        fetch(`${base}/v1/auth/reset-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, password: "NewLocalPass2!" }),
+        });
+      const [a, b] = await Promise.all([reset(second), reset(second)]);
+      assert.deepEqual([a.status, b.status].sort(), [204, 410], "one token, one reset");
+      assert.equal(await findValidPasswordReset(inviteLink), null, "a completed reset voids other links");
+    } finally {
+      await stopTestServer(server);
+      await closePool();
+    }
+  });
 });
