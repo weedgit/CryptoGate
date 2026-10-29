@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Daily PaymentGate Postgres dump. Same-disk unless PAYMENTGATE_BACKUP_RCLONE_REMOTE is set.
+# With PAYMENTGATE_BACKUP_GPG_RECIPIENT set, the offsite copy is GPG-encrypted to that key
+# (keep its private key off this host); the local dump stays plain for restore drills.
 # Writes $DEST/status.json for API / dashboard health (PAYMENTGATE_BACKUP_STATUS_PATH).
 set -euo pipefail
+# Dumps are private from the moment they exist, not after a later chmod (review D6).
+umask 077
 
 KEEP_DAYS="${PAYMENTGATE_BACKUP_KEEP_DAYS:-14}"
 DEST="${PAYMENTGATE_BACKUP_DIR:-/var/backups/paymentgate}"
@@ -50,6 +54,8 @@ with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
     f.write("\n")
 PY
+  # Health status only (no data): the API reads it as an unprivileged user.
+  chmod 644 "$STATUS_PATH" 2>/dev/null || true
 }
 
 on_fail() {
@@ -87,8 +93,20 @@ if [[ "${DUMP_BYTES:-0}" -lt 64 ]]; then
 fi
 
 if [[ -n "${PAYMENTGATE_BACKUP_RCLONE_REMOTE:-}" ]]; then
+  OFFSITE_SRC="$OUT/paymentgate.dump"
+  if [[ -n "${PAYMENTGATE_BACKUP_GPG_RECIPIENT:-}" ]]; then
+    OFFSITE_SRC="$OUT/paymentgate.dump.gpg"
+    if ! gpg --batch --yes --trust-model always \
+      --recipient "$PAYMENTGATE_BACKUP_GPG_RECIPIENT" \
+      --output "$OFFSITE_SRC" --encrypt "$OUT/paymentgate.dump"; then
+      MESSAGE="pg_dump ok; gpg encryption failed"
+      echo "$MESSAGE" >&2
+      exit 1
+    fi
+  fi
   if command -v rclone >/dev/null 2>&1 \
-    && rclone copy "$OUT" "${PAYMENTGATE_BACKUP_RCLONE_REMOTE%/}/$STAMP" --quiet; then
+    && rclone copyto "$OFFSITE_SRC" \
+      "${PAYMENTGATE_BACKUP_RCLONE_REMOTE%/}/$STAMP/$(basename "$OFFSITE_SRC")" --quiet; then
     OFFSITE=true
   else
     MESSAGE="pg_dump ok; offsite rclone failed"
