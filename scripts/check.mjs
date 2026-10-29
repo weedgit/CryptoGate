@@ -61,6 +61,7 @@ run("node", [
   "apps/watcher/test/restart-safety.test.mjs",
   "apps/watcher/test/reorg.test.mjs",
   "apps/watcher/test/anomaly-paths.test.mjs",
+  "apps/watcher/test/order-store-pg.test.mjs",
 ]);
 run("node", ["apps/watcher/src/main.mjs", "--once"]);
 

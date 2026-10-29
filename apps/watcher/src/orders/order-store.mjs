@@ -286,14 +286,27 @@ export async function applyMatchResult(db, input) {
   const { rows } = await db.query(
     `SELECT id, status, tx_hash, received_amount::text AS received_amount
      FROM payment_orders
-     WHERE id = ANY($1::uuid[])`,
+     WHERE id = ANY($1::uuid[])
+     ORDER BY created_at ASC, id ASC`,
     [ids],
   );
 
   const toWrite = [];
   /** @type {string[]} */
   const skipReasons = [];
+  // A collision already recorded: the hash sits on one order of the group, the others are
+  // anomalies without it (M1). Re-seeing the transfer must not rewrite them.
+  const groupHasHash = rows.some((r) => r.tx_hash === transfer.txHash);
   for (const row of rows) {
+    if (
+      groupHasHash &&
+      !row.tx_hash &&
+      row.status === "payment_anomaly" &&
+      result.status === "payment_anomaly"
+    ) {
+      skipReasons.push("already_applied");
+      continue;
+    }
     const decision = matchWriteNeeded(
       {
         status: row.status,
@@ -318,6 +331,14 @@ export async function applyMatchResult(db, input) {
     };
   }
 
+  // tx_hash is unique per network: a collision anomaly records it on the oldest order only.
+  // Writing it to every row violated the index, the error was swallowed and the anomaly was
+  // never saved (review M1).
+  const hashHolderId =
+    rows.find((r) => r.tx_hash === transfer.txHash)?.id ??
+    rows.find((r) => toWrite.includes(r.id) && !r.tx_hash)?.id ??
+    null;
+
   try {
     const { rowCount } = await db.query(
       `UPDATE payment_orders
@@ -332,7 +353,7 @@ export async function applyMatchResult(db, input) {
            END,
            tx_hash = CASE
              WHEN $1 = 'verifying' THEN $3
-             WHEN tx_hash IS NULL AND $1 = 'payment_anomaly' THEN $3
+             WHEN tx_hash IS NULL AND $1 = 'payment_anomaly' AND id = $8::uuid THEN $3
              ELSE tx_hash
            END,
            from_address = CASE
@@ -353,6 +374,7 @@ export async function applyMatchResult(db, input) {
         WATCHER_MATCH_APPLY_STATUSES,
         result.reason ?? null,
         fromAddress,
+        hashHolderId,
       ],
     );
 
