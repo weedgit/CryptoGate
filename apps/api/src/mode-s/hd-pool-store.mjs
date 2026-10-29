@@ -68,17 +68,6 @@ export async function claimHdPoolAddress(client, query) {
     main = settlement?.address?.trim() ?? "";
   }
 
-  const free = await claimFreeRow(
-    client,
-    query.merchantId,
-    query.asset,
-    query.network,
-    main,
-  );
-  if (free) {
-    return { receiveAddress: free.receive_address, hdIndex: free.hd_index };
-  }
-
   const xpub = await getActiveXpub(
     query.merchantId,
     query.asset,
@@ -88,8 +77,22 @@ export async function claimHdPoolAddress(client, query) {
   if (!xpub) {
     throw new Error("xPub is required for HD pool claim");
   }
-
   const fp = hdMaterialFingerprint(xpub);
+
+  // Reuse only addresses of the active xPub: after a rotation (e.g. a compromised wallet)
+  // FREE rows of the old one must never be handed out again (review M10).
+  const free = await claimFreeRow(
+    client,
+    query.merchantId,
+    query.asset,
+    query.network,
+    main,
+    fp,
+  );
+  if (free) {
+    return { receiveAddress: free.receive_address, hdIndex: free.hd_index };
+  }
+
   const startIndex = await nextHdIndex(
     client,
     query.merchantId,
@@ -220,8 +223,9 @@ export async function releaseDueHdPoolAddresses(client) {
  * @param {string} asset
  * @param {string} network
  * @param {string} mainAddress
+ * @param {string} xpubFp fingerprint of the active xPub
  */
-async function claimFreeRow(client, orgId, asset, network, mainAddress) {
+async function claimFreeRow(client, orgId, asset, network, mainAddress, xpubFp) {
   const { rows } = await client.query(
     `UPDATE hd_pool_addresses AS p
      SET status = 'IN_USE',
@@ -234,6 +238,7 @@ async function claimFreeRow(client, orgId, asset, network, mainAddress) {
          AND asset = $2
          AND network = $3
          AND status = 'FREE'
+         AND xpub_fp = $5
          AND NOT (${sameAddressSql("receive_address", "$4", network)})
        ORDER BY hd_index ASC
        FOR UPDATE SKIP LOCKED
@@ -241,7 +246,7 @@ async function claimFreeRow(client, orgId, asset, network, mainAddress) {
      ) AS picked
      WHERE p.id = picked.id
      RETURNING p.hd_index, p.receive_address`,
-    [orgId, asset, network, mainAddress],
+    [orgId, asset, network, mainAddress, xpubFp],
   );
   return rows[0] ?? null;
 }
